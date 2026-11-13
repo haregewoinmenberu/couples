@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -25,6 +26,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollCtrl = ScrollController();
   final _focusNode = FocusNode();
   String? _replyToId;
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final img = await picker.pickImage(source: ImageSource.gallery);
+    if (img == null) return;
+    final session = ref.read(sessionProvider);
+    final msg = ChatMessage(
+      id: 'msg_photo_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: session.currentUser?.id ?? alexId,
+      type: MessageType.photo,
+      photoSeed: DateTime.now().millisecondsSinceEpoch % 8,
+      text: img.path,
+      sentAt: DateTime.now(),
+    );
+    ref.read(chatProvider.notifier).send(msg);
+  }
 
   void _send() {
     final text = _textCtrl.text.trim();
@@ -158,7 +175,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             focusNode: _focusNode,
             onSend: _send,
             onAttachMusic: () => context.push('/music'),
-            onAttachPhoto: () {},
+            onAttachPhoto: _pickPhoto,
             onVoice: () {
               final session = ref.read(sessionProvider);
               final msg = ChatMessage(
@@ -593,7 +610,7 @@ class _Composer extends StatelessWidget {
               minLines: 1,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: 'Type a message...',
+                hintText: 'Send a song...',
                 filled: true,
                 fillColor: AppColors.backgroundSecondary,
                 contentPadding: const EdgeInsets.symmetric(

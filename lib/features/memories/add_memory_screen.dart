@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,7 +25,20 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
   final _locationCtrl = TextEditingController();
   DateTime _date = DateTime.now();
   final List<int> _photoSeeds = [];
+  final List<String> _photoPaths = [];
   bool _loading = false;
+  final _picker = ImagePicker();
+
+  Future<void> _pickPhotos() async {
+    final imgs = await _picker.pickMultiImage();
+    if (imgs.isEmpty) return;
+    setState(() {
+      for (final img in imgs) {
+        _photoPaths.add(img.path);
+        _photoSeeds.add(DateTime.now().millisecondsSinceEpoch % 8);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -109,8 +123,7 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
                         ),
                       )),
                   GestureDetector(
-                    onTap: () => setState(() => _photoSeeds
-                        .add(DateTime.now().microsecond % 8)),
+                    onTap: _pickPhotos,
                     child: Container(
                       width: 80,
                       height: 80,

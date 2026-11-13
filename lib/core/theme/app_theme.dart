@@ -30,8 +30,8 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       fontFamily: AppTextStyles.body().fontFamily,
       colorScheme: const ColorScheme.light(
-        primary: AppColors.rose,
-        secondary: AppColors.lavender,
+        primary: AppColors.primary,
+        secondary: AppColors.accent,
         surface: AppColors.cardWhite,
         error: AppColors.error,
       ),

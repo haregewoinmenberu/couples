@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/song.dart';
 
@@ -44,6 +45,8 @@ class PlayerState {
 }
 
 class PlayerNotifier extends StateNotifier<PlayerState> {
+  Timer? _ticker;
+
   PlayerNotifier() : super(const PlayerState());
 
   void play(Song song, {List<Song>? queue}) {
@@ -53,10 +56,17 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       position: Duration.zero,
       queue: queue ?? [song],
     );
+    _startTicker();
   }
 
-  void togglePlayPause() =>
-      state = state.copyWith(isPlaying: !state.isPlaying);
+  void togglePlayPause() {
+    state = state.copyWith(isPlaying: !state.isPlaying);
+    if (state.isPlaying) {
+      _startTicker();
+    } else {
+      _stopTicker();
+    }
+  }
 
   void seek(Duration position) => state = state.copyWith(position: position);
 
@@ -67,7 +77,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void toggleListenTogether() =>
       state = state.copyWith(listenTogether: !state.listenTogether);
 
-  void stop() => state = const PlayerState();
+  void stop() {
+    _stopTicker();
+    state = const PlayerState();
+  }
 
   void next() {
     if (state.queue.isEmpty) return;
@@ -76,7 +89,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     state = state.copyWith(
       currentSong: state.queue[nextIdx],
       position: Duration.zero,
+      isPlaying: true,
     );
+    _startTicker();
   }
 
   void previous() {
@@ -86,7 +101,38 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     state = state.copyWith(
       currentSong: state.queue[prevIdx],
       position: Duration.zero,
+      isPlaying: true,
     );
+    _startTicker();
+  }
+
+  void _startTicker() {
+    _stopTicker();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!state.isPlaying || state.currentSong == null) return;
+      final newPos = state.position + const Duration(seconds: 1);
+      final duration = state.currentSong!.duration;
+      if (newPos >= duration) {
+        if (state.repeat) {
+          state = state.copyWith(position: Duration.zero);
+        } else {
+          next();
+        }
+      } else {
+        state = state.copyWith(position: newPos);
+      }
+    });
+  }
+
+  void _stopTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+  }
+
+  @override
+  void dispose() {
+    _stopTicker();
+    super.dispose();
   }
 }
 
@@ -94,8 +140,6 @@ final playerProvider =
     StateNotifierProvider<PlayerNotifier, PlayerState>((ref) {
   return PlayerNotifier();
 });
-
-// ─── Favorites ───────────────────────────────────────────────────────────────
 
 class FavoritesNotifier extends StateNotifier<Set<String>> {
   FavoritesNotifier() : super({'s1', 's2', 's6', 's9'});

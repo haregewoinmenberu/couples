@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
-import '../../core/utils/date_helpers.dart';
 import '../../data/mock/mock_people.dart';
 import '../../data/mock/mock_playlists.dart';
 import '../../data/mock/mock_songs.dart';
@@ -27,82 +26,118 @@ class HomeScreen extends ConsumerWidget {
     final partner = session.partner ?? mockSophia;
     final couple = session.couple ?? mockCouple;
 
-    final hour = DateTime.now().hour;
-    final greeting = hour < 12
-        ? 'Good morning'
-        : hour < 17
-            ? 'Good afternoon'
-            : 'Good evening';
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            backgroundColor: AppColors.background,
-            surfaceTintColor: Colors.transparent,
-            floating: true,
-            snap: true,
-            titleSpacing: 20,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$greeting, ${user.fullName}.',
-                    style: AppTextStyles.h3()),
-                Text('Your shared musical world.',
-                    style: AppTextStyles.caption()),
-              ],
-            ),
-            actions: [
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined),
-                    onPressed: () => context.push('/notifications'),
-                  ),
-                  if (unread > 0)
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                            color: AppColors.rose, shape: BoxShape.circle),
-                      ),
-                    ),
-                ],
+          // Hero header with gradient
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: AppColors.heroGradient,
               ),
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: GestureDetector(
-                  onTap: () => context.push('/profile'),
-                  child: AvatarTile(
-                      seed: user.avatarSeed, size: 36, label: user.fullName),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Column(
+                    children: [
+                      // Top bar
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('OurSound',
+                                    style: AppTextStyles.h2(
+                                        color: AppColors.primary)),
+                                Text('A shared musical world for two.',
+                                    style: AppTextStyles.small(
+                                        color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                          Stack(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.notifications_outlined,
+                                    color: AppColors.textPrimary),
+                                onPressed: () =>
+                                    context.push('/notifications'),
+                              ),
+                              if (unread > 0)
+                                Positioned(
+                                  top: 10,
+                                  right: 10,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: AvatarTile(
+                                seed: user.avatarSeed,
+                                size: 38,
+                                label: user.fullName),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Couple hero card
+                      _HeroCoupleCard(
+                        user: user,
+                        partner: partner,
+                        daysTogether: couple.daysTogether,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
+
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Couple card
-                _CoupleCard(
-                  user: user,
-                  partner: partner,
-                  daysTogether: couple.daysTogether,
-                  anniversary: couple.anniversaryDate,
+                // Quick actions
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _QuickAction(
+                      icon: Icons.music_note_rounded,
+                      label: 'Send\na Song',
+                      seed: 0,
+                      onTap: () => context.push('/music'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.photo_camera_rounded,
+                      label: 'Share\nPhoto',
+                      seed: 2,
+                      onTap: () => context.push('/chat'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.playlist_add_rounded,
+                      label: 'Create\nPlaylist',
+                      seed: 4,
+                      onTap: () => context.push('/playlists'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.favorite_rounded,
+                      label: 'Add\nMemory',
+                      seed: 6,
+                      onTap: () => context.push('/memories/add'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-
-                // Daily song
-                _SectionHeader(title: "Today's song for us",
-                    action: 'See all',
-                    onAction: () => context.push('/music')),
-                const SizedBox(height: 10),
-                _DailySongCard(song: mockSongs[0], ref: ref),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Now playing together
                 if (player.hasTrack) ...[
@@ -112,62 +147,62 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 20),
                 ],
 
-                // Quick actions
-                _SectionHeader(title: 'Quick actions'),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _QuickAction(
-                        icon: Icons.music_note_rounded,
-                        label: 'Send a Song',
-                        seed: 0,
-                        onTap: () => context.push('/music')),
-                    _QuickAction(
-                        icon: Icons.photo_camera_rounded,
-                        label: 'Share a Photo',
-                        seed: 2,
-                        onTap: () => context.push('/chat')),
-                    _QuickAction(
-                        icon: Icons.playlist_add_rounded,
-                        label: 'Create Playlist',
-                        seed: 4,
-                        onTap: () => context.push('/playlists')),
-                    _QuickAction(
-                        icon: Icons.add_photo_alternate_rounded,
-                        label: 'Add Memory',
-                        seed: 6,
-                        onTap: () => context.push('/memories/add')),
-                  ],
-                ),
-                const SizedBox(height: 20),
+                // Today's song
+                _SectionHeader(
+                    title: "Today's song for us",
+                    action: 'See all',
+                    onAction: () => context.push('/music')),
+                const SizedBox(height: 10),
+                _DailySongCard(song: mockSongs[0], ref: ref),
+                const SizedBox(height: 24),
 
-                // Playlists
+                // Shared playlists
                 _SectionHeader(
                     title: 'Shared playlists',
                     action: 'See all',
                     onAction: () => context.push('/playlists')),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 SizedBox(
-                  height: 110,
+                  height: 130,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: mockPlaylists.length.clamp(0, 4),
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemCount: mockPlaylists.length.clamp(0, 5),
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (_, i) {
                       final pl = mockPlaylists[i];
                       return GestureDetector(
                         onTap: () => context.push('/playlists/${pl.id}'),
                         child: SizedBox(
-                          width: 100,
+                          width: 108,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ArtworkTile(
-                                  seed: pl.coverSeed,
-                                  size: 80,
-                                  borderRadius: 14,
-                                  icon: Icons.playlist_play_rounded),
+                              Stack(
+                                children: [
+                                  ArtworkTile(
+                                    seed: pl.coverSeed,
+                                    size: 90,
+                                    borderRadius: 16,
+                                    icon: Icons.playlist_play_rounded,
+                                  ),
+                                  Positioned(
+                                    bottom: 8,
+                                    right: 8,
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                          size: 18),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 6),
                               Text(pl.title,
                                   style: AppTextStyles.caption(
@@ -181,17 +216,11 @@ class HomeScreen extends ConsumerWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Daily question
-                _SectionHeader(
-                    title: "Daily question",
-                    action: 'Answer',
-                    onAction: () => context.push('/questions')),
-                const SizedBox(height: 10),
                 _DailyQuestionCard(),
-
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Recent activity
                 _SectionHeader(title: 'Recent activity'),
@@ -216,8 +245,7 @@ class HomeScreen extends ConsumerWidget {
                   text: '${partner.fullName} reacted ❤️ to "Yellow"',
                   time: '2d ago',
                 ),
-
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 // Feature shortcuts
                 Row(
@@ -259,75 +287,110 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _CoupleCard extends StatelessWidget {
+class _HeroCoupleCard extends StatelessWidget {
   final dynamic user;
   final dynamic partner;
   final int daysTogether;
-  final DateTime anniversary;
 
-  const _CoupleCard({
+  const _HeroCoupleCard({
     required this.user,
     required this.partner,
     required this.daysTogether,
-    required this.anniversary,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppColors.loveGradient,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(color: AppColors.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Stack(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AvatarTile(
-                  seed: user.avatarSeed, size: 54, label: user.fullName),
-              Positioned(
-                bottom: 0,
-                right: -8,
-                child: AvatarTile(
-                    seed: partner.avatarSeed,
-                    size: 46,
-                    label: partner.fullName),
+              _AvatarCircle(seed: user.avatarSeed, name: user.fullName, size: 70),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                child: const Icon(Icons.favorite_rounded,
+                    color: AppColors.primary, size: 28),
               ),
+              _AvatarCircle(
+                  seed: partner.avatarSeed, name: partner.fullName, size: 70),
             ],
           ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 14),
+          Text('${user.fullName} & ${partner.fullName}',
+              style: AppTextStyles.h3()),
+          const SizedBox(height: 4),
+          Text('Our private space · Just the two of us ♡',
+              style: AppTextStyles.small(color: AppColors.textSecondary)),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${user.fullName} & ${partner.fullName}',
-                    style: AppTextStyles.bodyMedium()),
-                Text(formatAnniversary(anniversary),
-                    style: AppTextStyles.caption()),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.rose.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text('$daysTogether days together',
-                          style: AppTextStyles.small(
-                              color: AppColors.rose)),
-                    ),
-                  ],
-                ),
+                const Icon(Icons.calendar_today_rounded,
+                    color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Text('Together for $daysTogether days',
+                    style: AppTextStyles.bodyMedium(color: Colors.white)),
               ],
             ),
           ),
-          const Icon(Icons.favorite_rounded,
-              color: AppColors.rose, size: 20),
         ],
+      ),
+    );
+  }
+}
+
+class _AvatarCircle extends StatelessWidget {
+  final String seed;
+  final String name;
+  final double size;
+
+  const _AvatarCircle(
+      {required this.seed, required this.name, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: artworkGradient(seed.codeUnits.fold(0, (a, b) => a + b) % 8),
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -341,52 +404,73 @@ class _DailySongCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          ArtworkTile(
-              seed: song.artworkSeed,
-              size: 60,
-              borderRadius: 12,
-              icon: Icons.music_note_rounded),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(song.title, style: AppTextStyles.bodyMedium()),
-                Text(song.artist, style: AppTextStyles.caption()),
-              ],
+    return GestureDetector(
+      onTap: () {
+        ref.read(playerProvider.notifier).play(song, queue: mockSongs);
+        context.push('/player', extra: song.id);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
-          ),
-          GestureDetector(
-            onTap: () {
-              ref.read(playerProvider.notifier).play(song);
-              context.push('/player', extra: song.id);
-            },
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: const BoxDecoration(
-                  color: AppColors.rose, shape: BoxShape.circle),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.music_note_rounded,
+                  color: Colors.white, size: 32),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(song.title,
+                      style: AppTextStyles.bodyMedium(color: Colors.white),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  Text(song.artist,
+                      style: AppTextStyles.caption(color: Colors.white70)),
+                  const SizedBox(height: 6),
+                  Text('Sometimes, a song says what words cannot. ♡',
+                      style: AppTextStyles.small(color: Colors.white60),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
               child: const Icon(Icons.play_arrow_rounded,
-                  color: Colors.white, size: 24),
+                  color: AppColors.primary, size: 26),
             ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: () =>
-                ref.read(favoritesProvider.notifier).toggle(song.id),
-            child: const Icon(Icons.favorite_border_rounded,
-                color: AppColors.textSecondary, size: 20),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -401,44 +485,68 @@ class _NowPlayingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final song = player.currentSong!;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.darkPlayer,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: Row(
-        children: [
-          ArtworkTile(
-              seed: song.artworkSeed,
-              size: 52,
-              borderRadius: 10,
-              icon: Icons.music_note_rounded),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final progress = song.duration.inSeconds > 0
+        ? player.position.inSeconds / song.duration.inSeconds
+        : 0.0;
+    return GestureDetector(
+      onTap: () => context.push('/player', extra: song.id),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.darkPlayer,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Column(
+          children: [
+            Row(
               children: [
-                Text(song.title,
-                    style: AppTextStyles.bodyMedium(color: Colors.white)),
-                Text(song.artist,
-                    style: AppTextStyles.caption(
-                        color: Colors.white60)),
+                ArtworkTile(
+                    seed: song.artworkSeed,
+                    size: 52,
+                    borderRadius: 10,
+                    icon: Icons.music_note_rounded),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(song.title,
+                          style: AppTextStyles.bodyMedium(
+                              color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      Text(song.artist,
+                          style:
+                              AppTextStyles.caption(color: Colors.white60)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    player.isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_filled_rounded,
+                    color: AppColors.accent,
+                    size: 38,
+                  ),
+                  onPressed: () =>
+                      ref.read(playerProvider.notifier).togglePlayPause(),
+                ),
               ],
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              player.isPlaying
-                  ? Icons.pause_circle_filled_rounded
-                  : Icons.play_circle_filled_rounded,
-              color: AppColors.rose,
-              size: 36,
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: AppColors.darkPlayerSecondary,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                minHeight: 3,
+              ),
             ),
-            onPressed: () =>
-                ref.read(playerProvider.notifier).togglePlayPause(),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -464,22 +572,28 @@ class _QuickAction extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               gradient: artworkGradient(seed),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.25),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: Colors.white, size: 26),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           SizedBox(
-            width: 60,
+            width: 68,
             child: Text(
               label,
               style: AppTextStyles.small(color: AppColors.textPrimary),
               textAlign: TextAlign.center,
-              maxLines: 2,
             ),
           ),
         ],
@@ -499,12 +613,14 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text(title, style: AppTextStyles.h3())),
+        Expanded(
+            child: Text(title,
+                style: AppTextStyles.h3(color: AppColors.textPrimary))),
         if (action != null)
           GestureDetector(
             onTap: onAction,
             child: Text(action!,
-                style: AppTextStyles.caption(color: AppColors.rose)),
+                style: AppTextStyles.caption(color: AppColors.primary)),
           ),
       ],
     );
@@ -527,13 +643,13 @@ class _ActivityItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: const BoxDecoration(
               color: AppColors.softPink,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: AppColors.rose, size: 16),
+            child: Icon(icon, color: AppColors.primary, size: 16),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -556,7 +672,7 @@ class _DailyQuestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: AppColors.loveGradient,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -568,22 +684,30 @@ class _DailyQuestionCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.help_outline_rounded,
-                  size: 16, color: AppColors.rose),
+                  size: 16, color: AppColors.primary),
               const SizedBox(width: 6),
               Text('Today\'s Question',
-                  style: AppTextStyles.caption(color: AppColors.rose)),
+                  style: AppTextStyles.caption(color: AppColors.primary)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             '"What song reminds you of our first meeting?"',
             style: AppTextStyles.bodyMedium(),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           GestureDetector(
             onTap: () => context.push('/questions'),
-            child: Text('Answer now →',
-                style: AppTextStyles.caption(color: AppColors.rose)),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('Answer now →',
+                  style: AppTextStyles.caption(color: Colors.white)),
+            ),
           ),
         ],
       ),
@@ -609,11 +733,18 @@ class _FeatureShortcut extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           children: [
@@ -623,8 +754,10 @@ class _FeatureShortcut extends StatelessWidget {
                 borderRadius: 10,
                 icon: icon,
                 iconSize: 18),
-            const SizedBox(height: 6),
-            Text(label, style: AppTextStyles.caption(color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Text(label,
+                style: AppTextStyles.caption(
+                    color: AppColors.textPrimary)),
           ],
         ),
       ),

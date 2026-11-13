@@ -126,22 +126,44 @@ class PlaylistDetailScreen extends ConsumerWidget {
                 const EdgeInsets.fromLTRB(16, 8, 16, 100),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Play/Shuffle row
+                // Play Together / Shuffle row
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
+                      flex: 2,
+                      child: GestureDetector(
+                        onTap: () {
                           if (songs.isEmpty) return;
                           ref
                               .read(playerProvider.notifier)
                               .play(songs.first, queue: songs.cast());
-                          context.push('/player',
-                              extra: songs.first.id);
+                          context.push('/player', extra: songs.first.id);
                         },
-                        icon: const Icon(Icons.play_arrow_rounded,
-                            size: 20),
-                        label: const Text('Play All'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.play_arrow_rounded,
+                                  color: Colors.white, size: 22),
+                              const SizedBox(width: 8),
+                              Text('Play Together',
+                                  style: AppTextStyles.bodyMedium(
+                                      color: Colors.white)),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

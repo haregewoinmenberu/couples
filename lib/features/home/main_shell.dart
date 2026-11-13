@@ -13,9 +13,8 @@ class MainShell extends ConsumerWidget {
   static const _tabs = [
     _NavItem(label: 'Home', icon: Icons.home_rounded, path: '/home'),
     _NavItem(label: 'Chat', icon: Icons.chat_bubble_rounded, path: '/chat'),
-    _NavItem(label: 'Music', icon: Icons.music_note_rounded, path: '/music'),
-    _NavItem(
-        label: 'Memories', icon: Icons.photo_library_rounded, path: '/memories'),
+    _NavItem(label: 'Playlists', icon: Icons.library_music_rounded, path: '/playlists'),
+    _NavItem(label: 'Memories', icon: Icons.photo_library_rounded, path: '/memories'),
     _NavItem(label: 'Profile', icon: Icons.person_rounded, path: '/profile'),
   ];
 
@@ -35,9 +34,16 @@ class MainShell extends ConsumerWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.cardWhite,
-          border: Border(top: BorderSide(color: AppColors.border)),
+          border: const Border(top: BorderSide(color: AppColors.border)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
         ),
         child: SafeArea(
           child: Column(
@@ -45,7 +51,7 @@ class MainShell extends ConsumerWidget {
             children: [
               if (player.hasTrack) const MiniPlayer(),
               SizedBox(
-                height: 60,
+                height: 64,
                 child: Row(
                   children: List.generate(_tabs.length, (i) {
                     final tab = _tabs[i];
@@ -57,19 +63,30 @@ class MainShell extends ConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              tab.icon,
-                              size: 22,
-                              color: selected
-                                  ? AppColors.rose
-                                  : AppColors.textSecondary,
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: selected ? 42 : 32,
+                              height: selected ? 42 : 32,
+                              decoration: BoxDecoration(
+                                gradient: selected
+                                    ? AppColors.primaryGradient
+                                    : null,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                tab.icon,
+                                size: selected ? 22 : 20,
+                                color: selected
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               tab.label,
                               style: AppTextStyles.small(
                                 color: selected
-                                    ? AppColors.rose
+                                    ? AppColors.primary
                                     : AppColors.textSecondary,
                               ),
                             ),
