@@ -19,6 +19,7 @@ class Memory {
   final DateTime date;
   final String? location;
   final List<int> photoSeeds;
+  final List<String> photoUrls;
   final String? attachedSongId;
   final String createdByUserId;
   final bool isFavorite;
@@ -32,6 +33,7 @@ class Memory {
     required this.date,
     this.location,
     this.photoSeeds = const [],
+    this.photoUrls = const [],
     this.attachedSongId,
     required this.createdByUserId,
     this.isFavorite = false,
@@ -45,6 +47,7 @@ class Memory {
     DateTime? date,
     String? location,
     List<int>? photoSeeds,
+    List<String>? photoUrls,
     String? attachedSongId,
     bool? isFavorite,
     List<MemoryComment>? comments,
@@ -57,6 +60,7 @@ class Memory {
       date: date ?? this.date,
       location: location ?? this.location,
       photoSeeds: photoSeeds ?? this.photoSeeds,
+      photoUrls: photoUrls ?? this.photoUrls,
       attachedSongId: attachedSongId ?? this.attachedSongId,
       createdByUserId: createdByUserId,
       isFavorite: isFavorite ?? this.isFavorite,
@@ -64,4 +68,22 @@ class Memory {
       reactions: reactions ?? this.reactions,
     );
   }
+
+  factory Memory.fromJson(Map<String, dynamic> j) => Memory(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        description: j['description'] as String,
+        date: DateTime.parse(j['date'] as String),
+        location: j['location'] as String?,
+        photoUrls: (j['photos'] as List? ?? [])
+            .map((p) => 'http://107.170.39.158:3401${p['url']}')
+            .cast<String>()
+            .toList(),
+        attachedSongId: (j['songLinks'] as List? ?? []).isNotEmpty
+            ? (j['songLinks'][0]['song']?['id'] as String?)
+            : null,
+        createdByUserId: j['createdByUserId'] as String? ??
+            (j['createdBy']?['id'] as String? ?? ''),
+        reactions: List<String>.from(j['reactions'] as List? ?? []),
+      );
 }

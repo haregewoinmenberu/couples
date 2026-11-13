@@ -15,6 +15,30 @@ usersRouter.get('/', async (_req, res) => {
   res.json(users);
 });
 
+usersRouter.get('/by-email/:email', async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { email: decodeURIComponent(req.params.email) },
+    include: {
+      coupleAsA: { include: { userB: { select: { id: true, fullName: true, username: true, avatarSeed: true, phoneNumber: true } } } },
+      coupleAsB: { include: { userA: { select: { id: true, fullName: true, username: true, avatarSeed: true, phoneNumber: true } } } },
+    },
+  });
+  if (!user) { res.status(404).json({ error: 'Not found' }); return; }
+  res.json(user);
+});
+
+usersRouter.get('/by-username/:username', async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { username: req.params.username },
+    include: {
+      coupleAsA: { include: { userB: { select: { id: true, fullName: true, username: true, avatarSeed: true, phoneNumber: true } } } },
+      coupleAsB: { include: { userA: { select: { id: true, fullName: true, username: true, avatarSeed: true, phoneNumber: true } } } },
+    },
+  });
+  if (!user) { res.status(404).json({ error: 'Not found' }); return; }
+  res.json(user);
+});
+
 usersRouter.get('/:id', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.params.id },

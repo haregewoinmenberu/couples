@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../state/app_state.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
+  bool _navigated = false;
 
   @override
   void initState() {
@@ -22,9 +25,6 @@ class _SplashScreenState extends State<SplashScreen>
         vsync: this, duration: const Duration(milliseconds: 900));
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _ctrl.forward();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) context.go('/home');
-    });
   }
 
   @override
@@ -35,6 +35,21 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(sessionProvider);
+
+    // Wait for auth load, then navigate once.
+    if (!session.isLoading && !_navigated) {
+      _navigated = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (session.isAuthenticated) {
+          context.go('/home');
+        } else {
+          context.go('/welcome');
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: FadeTransition(
@@ -67,6 +82,12 @@ class _SplashScreenState extends State<SplashScreen>
                 'A shared musical world for two.',
                 style: AppTextStyles.body(color: AppColors.textSecondary),
               ),
+              const SizedBox(height: 40),
+              if (session.isLoading)
+                const CircularProgressIndicator(
+                  color: AppColors.primary,
+                  strokeWidth: 2,
+                ),
             ],
           ),
         ),

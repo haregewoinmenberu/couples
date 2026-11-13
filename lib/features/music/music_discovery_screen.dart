@@ -5,9 +5,9 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
-import '../../data/mock/mock_songs.dart';
 import '../../data/mock/mock_moods.dart';
 import '../../data/models/song.dart';
+import '../../state/content_state.dart' show songsProvider;
 import '../../state/music_state.dart';
 import '../../widgets/music/song_card.dart';
 
@@ -24,8 +24,8 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
   String? _selectedMood;
   String _query = '';
 
-  List<Song> get _filtered {
-    var songs = List<Song>.from(mockSongs);
+  List<Song> _filtered(List<Song> all) {
+    var songs = List<Song>.from(all);
     if (_selectedMood != null) {
       songs = songs.where((s) => s.moods.contains(_selectedMood)).toList();
     }
@@ -49,6 +49,9 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final songsAsync = ref.watch(songsProvider);
+    final allSongs = songsAsync.valueOrNull ?? [];
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -134,12 +137,17 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
 
                 if (_query.isNotEmpty || _selectedMood != null) ...[
                   Text(
-                    '${_filtered.length} result${_filtered.length == 1 ? '' : 's'}',
+                    '${_filtered(allSongs).length} result${_filtered(allSongs).length == 1 ? '' : 's'}',
                     style:
                         AppTextStyles.caption(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 10),
-                  ..._filtered.map((s) => SongCard(song: s)),
+                  ..._filtered(allSongs).map((s) => SongCard(song: s)),
+                ] else if (songsAsync.isLoading) ...[
+                  const Center(child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                  )),
                 ] else ...[
                   // Recommended
                   _SectionHeader(
@@ -147,13 +155,13 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
                       action: 'See all',
                       onAction: () {}),
                   const SizedBox(height: 10),
-                  ...mockSongs.take(4).map((s) => SongCard(song: s)),
+                  ...allSongs.take(4).map((s) => SongCard(song: s)),
                   const SizedBox(height: 20),
 
                   // Love songs
                   _SectionHeader(title: 'Love Songs'),
                   const SizedBox(height: 10),
-                  ...mockSongs
+                  ...allSongs
                       .where((s) => s.moods.contains('Romantic') ||
                           s.moods.contains('In Love'))
                       .take(4)
@@ -161,17 +169,17 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
                   const SizedBox(height: 20),
 
                   // Ethiopian
-                  _SectionHeader(title: 'Ethiopian Favorites'),
-                  const SizedBox(height: 10),
-                  ...mockSongs
-                      .where((s) => s.isEthiopian)
-                      .map((s) => SongCard(song: s)),
-                  const SizedBox(height: 20),
+                  if (allSongs.any((s) => s.isEthiopian)) ...[
+                    _SectionHeader(title: 'Ethiopian Favorites'),
+                    const SizedBox(height: 10),
+                    ...allSongs.where((s) => s.isEthiopian).map((s) => SongCard(song: s)),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Missing you
                   _SectionHeader(title: 'Missing You'),
                   const SizedBox(height: 10),
-                  ...mockSongs
+                  ...allSongs
                       .where((s) => s.moods.contains('Missing You') ||
                           s.moods.contains('Thinking of You'))
                       .map((s) => SongCard(song: s)),
@@ -184,16 +192,16 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
                     height: 120,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: mockSongs.length.clamp(0, 6),
+                      itemCount: allSongs.length.clamp(0, 6),
                       separatorBuilder: (_, __) =>
                           const SizedBox(width: 10),
                       itemBuilder: (_, i) {
-                        final s = mockSongs[i];
+                        final s = allSongs[i];
                         return GestureDetector(
                           onTap: () {
                             ref
                                 .read(playerProvider.notifier)
-                                .play(s, queue: mockSongs);
+                                .play(s, queue: allSongs);
                             context.push('/player', extra: s.id);
                           },
                           child: SizedBox(

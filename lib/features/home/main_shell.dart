@@ -3,12 +3,21 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../state/app_state.dart';
+import '../../state/content_state.dart';
 import '../../state/music_state.dart';
 import '../../widgets/player/mini_player.dart';
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
+
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  bool _loaded = false;
 
   static const _tabs = [
     _NavItem(label: 'Home', icon: Icons.home_rounded, path: '/home'),
@@ -27,12 +36,34 @@ class MainShell extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_loaded) {
+      _loaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadApiData());
+    }
+  }
+
+  void _loadApiData() {
+    final session = ref.read(sessionProvider);
+    final coupleId = session.couple?.id;
+
+    ref.read(songsProvider.notifier).load();
+
+    if (coupleId != null) {
+      ref.read(chatCoupleIdProvider.notifier).state = coupleId;
+      ref.read(memoriesProvider.notifier).loadForCouple(coupleId);
+      ref.read(playlistsProvider.notifier).loadForCouple(coupleId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final player = ref.watch(playerProvider);
     final idx = _currentIndex(context);
 
     return Scaffold(
-      body: child,
+      body: widget.child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.cardWhite,

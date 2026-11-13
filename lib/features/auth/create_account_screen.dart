@@ -1,56 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/artwork_generator.dart';
+import '../../state/app_state.dart';
 import '../../widgets/common/primary_button.dart';
 
-class CreateAccountScreen extends StatefulWidget {
+class CreateAccountScreen extends ConsumerStatefulWidget {
   const CreateAccountScreen({super.key});
 
   @override
-  State<CreateAccountScreen> createState() => _CreateAccountScreenState();
+  ConsumerState<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
-class _CreateAccountScreenState extends State<CreateAccountScreen> {
+class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
   final _nameCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _pwCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
-  bool _obscure = true;
+  final _phoneCtrl = TextEditingController();
   bool _loading = false;
-
   String? _error;
 
-  void _create() async {
+  Future<void> _create() async {
     final name = _nameCtrl.text.trim();
+    final username = _usernameCtrl.text.trim().replaceAll('@', '');
     final email = _emailCtrl.text.trim();
-    final pw = _pwCtrl.text;
-    final confirm = _confirmCtrl.text;
+    final phone = _phoneCtrl.text.trim();
 
-    if (name.isEmpty || email.isEmpty || pw.isEmpty) {
+    if (name.isEmpty || email.isEmpty || username.isEmpty || phone.isEmpty) {
       setState(() => _error = 'Please fill in all fields.');
       return;
     }
-    if (pw != confirm) {
-      setState(() => _error = 'Passwords do not match.');
-      return;
+    setState(() { _error = null; _loading = true; });
+    try {
+      await ref.read(sessionProvider.notifier).register(
+        fullName: name,
+        username: username,
+        email: email,
+        phoneNumber: phone,
+      );
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      setState(() => _error = e.toString().contains('Unique')
+          ? 'Email or username already taken.'
+          : 'Error: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    setState(() {
-      _error = null;
-      _loading = true;
-    });
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-    context.go('/auth/profile');
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _usernameCtrl.dispose();
     _emailCtrl.dispose();
-    _pwCtrl.dispose();
-    _confirmCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -97,17 +103,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               const SizedBox(height: 28),
               _field('Full Name', _nameCtrl, hint: 'Sophia'),
               const SizedBox(height: 14),
+              _field('Username', _usernameCtrl, hint: 'sophiachen'),
+              const SizedBox(height: 14),
               _field('Email Address', _emailCtrl,
                   hint: 'sophia@example.com',
                   type: TextInputType.emailAddress),
               const SizedBox(height: 14),
-              _field('Password', _pwCtrl,
-                  hint: '••••••••', obscure: _obscure, onToggleObscure: () {
-                setState(() => _obscure = !_obscure);
-              }),
-              const SizedBox(height: 14),
-              _field('Confirm Password', _confirmCtrl,
-                  hint: '••••••••', obscure: true),
+              _field('Phone Number', _phoneCtrl,
+                  hint: '+1 555 0100',
+                  type: TextInputType.phone),
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(_error!,

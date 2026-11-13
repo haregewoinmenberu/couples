@@ -1,5 +1,17 @@
 enum MessageType { text, song, photo, voice, dedication, playlist, memory, dailyQuestion }
 
+extension MessageTypeX on MessageType {
+  static MessageType fromString(String s) => switch (s) {
+        'song' => MessageType.song,
+        'photo' || 'image' => MessageType.photo,
+        'voice' => MessageType.voice,
+        'dedication' => MessageType.dedication,
+        'playlist' => MessageType.playlist,
+        'memory' => MessageType.memory,
+        _ => MessageType.text,
+      };
+}
+
 class ChatMessage {
   final String id;
   final String senderId;
@@ -30,6 +42,18 @@ class ChatMessage {
     this.reactions = const [],
     this.isDeleted = false,
   });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        id: j['id'] as String,
+        senderId: j['senderId'] as String,
+        type: MessageTypeX.fromString(j['type'] as String? ?? 'text'),
+        text: j['text'] as String?,
+        songId: j['songId'] as String?,
+        // imageUrl stored in text field for photo type
+        sentAt: DateTime.parse(j['createdAt'] as String),
+        reactions: const [],
+        isDeleted: false,
+      );
 
   ChatMessage copyWith({
     List<String>? reactions,

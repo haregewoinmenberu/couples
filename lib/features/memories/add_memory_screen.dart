@@ -6,8 +6,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
-import '../../data/models/memory.dart';
-import '../../data/mock/mock_people.dart';
 import '../../state/app_state.dart';
 import '../../state/content_state.dart';
 import '../../widgets/common/primary_button.dart';
@@ -48,24 +46,19 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
     super.dispose();
   }
 
-  void _save() async {
+  Future<void> _save() async {
     if (_titleCtrl.text.trim().isEmpty) return;
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
     final session = ref.read(sessionProvider);
-    final memory = Memory(
-      id: 'mem_${DateTime.now().millisecondsSinceEpoch}',
+    await ref.read(memoriesProvider.notifier).addFromApi(
       title: _titleCtrl.text.trim(),
       description: _descCtrl.text.trim(),
       date: _date,
-      location: _locationCtrl.text.trim().isEmpty
-          ? null
-          : _locationCtrl.text.trim(),
-      photoSeeds: List.from(_photoSeeds),
-      createdByUserId: session.currentUser?.id ?? alexId,
+      userId: session.currentUser?.id ?? '',
+      coupleId: session.couple?.id,
+      location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
     );
-    ref.read(memoriesProvider.notifier).add(memory);
+    if (!mounted) return;
     setState(() => _loading = false);
     context.pop();
   }

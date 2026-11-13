@@ -31,6 +31,19 @@ couplesRouter.get('/:id', async (req, res) => {
   res.json(couple);
 });
 
+couplesRouter.get('/for-user/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const couple = await prisma.couple.findFirst({
+    where: { OR: [{ userAId: userId }, { userBId: userId }] },
+    include: {
+      userA: { select: { id: true, fullName: true, username: true, avatarSeed: true, phoneNumber: true } },
+      userB: { select: { id: true, fullName: true, username: true, avatarSeed: true, phoneNumber: true } },
+    },
+  });
+  if (!couple) { res.status(404).json({ error: 'Not found' }); return; }
+  res.json(couple);
+});
+
 couplesRouter.post('/', async (req, res) => {
   const { userAId, userBId, anniversaryDate } = req.body as { userAId: string; userBId: string; anniversaryDate: string };
   const couple = await prisma.couple.create({

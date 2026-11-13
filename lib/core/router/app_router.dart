@@ -87,6 +87,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootKey,
     initialLocation: '/splash',
     redirect: (context, state) {
+      // Don't redirect while loading persisted auth
+      if (session.isLoading) return '/splash';
+
       final authenticated = session.isAuthenticated;
       final onAuthPath = state.matchedLocation.startsWith('/auth') ||
           state.matchedLocation.startsWith('/onboarding') ||

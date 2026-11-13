@@ -26,4 +26,17 @@ class Song {
     final s = duration.inSeconds % 60;
     return '$m:${s.toString().padLeft(2, '0')}';
   }
+
+  factory Song.fromJson(Map<String, dynamic> j) => Song(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        artist: j['artist'] as String,
+        album: j['album'] as String,
+        artworkSeed: (j['artworkSeed'] as num?)?.toInt() ?? 0,
+        duration:
+            Duration(seconds: (j['durationSecs'] as num?)?.toInt() ?? 0),
+        moods: List<String>.from(j['moods'] as List? ?? []),
+        genres: List<String>.from(j['genres'] as List? ?? []),
+        isEthiopian: j['isEthiopian'] as bool? ?? false,
+      );
 }

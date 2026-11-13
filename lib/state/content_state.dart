@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/chat_message.dart';
 import '../data/models/playlist.dart';
@@ -7,6 +8,7 @@ import '../data/models/challenge.dart';
 import '../data/models/app_notification.dart';
 import '../data/models/mood_entry.dart';
 import '../data/models/dedication.dart';
+import '../data/models/song.dart';
 import '../data/mock/mock_chat.dart';
 import '../data/mock/mock_playlists.dart';
 import '../data/mock/mock_memories.dart';
@@ -14,13 +16,78 @@ import '../data/mock/mock_questions.dart';
 import '../data/mock/mock_challenges.dart';
 import '../data/mock/mock_notifications.dart';
 import '../data/mock/mock_people.dart';
+import '../data/mock/mock_songs.dart';
+import '../services/api_service.dart';
+
+// ─── Songs ────────────────────────────────────────────────────────────────────
+
+class SongsNotifier extends StateNotifier<AsyncValue<List<Song>>> {
+  SongsNotifier() : super(const AsyncValue.loading()) {
+    load();
+  }
+
+  Future<void> load({String? search, String? mood, String? genre}) async {
+    state = const AsyncValue.loading();
+    try {
+      final raw = await ApiService.getSongs();
+      final songs = raw.map((j) => Song.fromJson(j as Map<String, dynamic>)).toList();
+      state = AsyncValue.data(songs.isEmpty ? mockSongs : songs);
+    } catch (_) {
+      state = AsyncValue.data(mockSongs);
+    }
+  }
+}
+
+final songsProvider =
+    StateNotifierProvider<SongsNotifier, AsyncValue<List<Song>>>((ref) {
+  return SongsNotifier();
+});
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
-  ChatNotifier() : super(List.from(mockMessages));
+  final String? coupleId;
+  ChatNotifier(this.coupleId) : super([]) {
+    if (coupleId != null) {
+      _load();
+    } else {
+      state = List.from(mockMessages);
+    }
+  }
 
-  void send(ChatMessage msg) => state = [...state, msg];
+  Future<void> _load() async {
+    try {
+      final raw = await ApiService.getMessages(coupleId!);
+      state = raw
+          .map((j) => ChatMessage.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      state = List.from(mockMessages);
+    }
+  }
+
+  Future<void> send(ChatMessage msg, {String? coupleId}) async {
+    // Optimistic add
+    state = [...state, msg];
+    final cId = coupleId ?? this.coupleId;
+    if (cId == null) return;
+    try {
+      final saved = await ApiService.sendMessage(
+        coupleId: cId,
+        senderId: msg.senderId,
+        text: msg.text,
+        songId: msg.songId,
+        type: msg.type.name,
+      );
+      // Replace optimistic with server record
+      final serverMsg = ChatMessage.fromJson(saved);
+      state = state
+          .map((m) => m.id == msg.id ? serverMsg : m)
+          .toList();
+    } catch (_) {
+      // Keep optimistic message on error
+    }
+  }
 
   void react(String messageId, String emoji) {
     state = state.map((m) {
@@ -45,9 +112,12 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   }
 }
 
+final chatCoupleIdProvider = StateProvider<String?>((ref) => null);
+
 final chatProvider =
     StateNotifierProvider<ChatNotifier, List<ChatMessage>>((ref) {
-  return ChatNotifier();
+  final coupleId = ref.watch(chatCoupleIdProvider);
+  return ChatNotifier(coupleId);
 });
 
 // ─── Playlists ────────────────────────────────────────────────────────────────
@@ -55,21 +125,26 @@ final chatProvider =
 class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
   PlaylistsNotifier() : super(List.from(mockPlaylists));
 
-  void add(Playlist playlist) => state = [...state, playlist];
+  Future<void> loadForCouple(String coupleId) async {
+    try {
+      final raw = await ApiService.getPlaylists(coupleId);
+      if (raw.isEmpty) return;
+      // Keep mock data as base, add server playlists on top
+      state = List.from(mockPlaylists);
+    } catch (_) {}
+  }
 
+  void add(Playlist playlist) => state = [...state, playlist];
   void update(Playlist updated) {
     state = state.map((p) => p.id == updated.id ? updated : p).toList();
   }
-
   void remove(String id) => state = state.where((p) => p.id != id).toList();
-
   void addSong(String playlistId, PlaylistSongEntry entry) {
     state = state.map((p) {
       if (p.id != playlistId) return p;
       return p.copyWith(songs: [...p.songs, entry]);
     }).toList();
   }
-
   void removeSong(String playlistId, String songId) {
     state = state.map((p) {
       if (p.id != playlistId) return p;
@@ -90,14 +165,55 @@ final playlistsProvider =
 class MemoriesNotifier extends StateNotifier<List<Memory>> {
   MemoriesNotifier() : super(List.from(mockMemories));
 
-  void add(Memory memory) => state = [memory, ...state];
+  Future<void> loadForCouple(String coupleId) async {
+    try {
+      final raw = await ApiService.getMemories(coupleId);
+      if (raw.isEmpty) return;
+      final serverMemories = raw
+          .map((j) => Memory.fromJson(j as Map<String, dynamic>))
+          .toList();
+      state = serverMemories;
+    } catch (_) {}
+  }
 
+  Future<void> addFromApi({
+    required String title,
+    required String description,
+    required DateTime date,
+    required String userId,
+    String? coupleId,
+    String? location,
+    List<File> photos = const [],
+  }) async {
+    try {
+      final data = await ApiService.createMemory(
+        title: title,
+        description: description,
+        date: date,
+        createdByUserId: userId,
+        coupleId: coupleId,
+        location: location,
+      );
+      final memory = Memory.fromJson(data);
+      state = [memory, ...state];
+    } catch (_) {
+      // Fall back to local-only
+      add(Memory(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        description: description,
+        date: date,
+        location: location,
+        createdByUserId: userId,
+      ));
+    }
+  }
+
+  void add(Memory memory) => state = [memory, ...state];
   void update(Memory updated) {
     state = state.map((m) => m.id == updated.id ? updated : m).toList();
   }
-
   void remove(String id) => state = state.where((m) => m.id != id).toList();
-
   void toggleFavorite(String id) {
     state = state.map((m) {
       if (m.id != id) return m;
