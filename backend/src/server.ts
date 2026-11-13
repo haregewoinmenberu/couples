@@ -16,8 +16,9 @@ const PORT = process.env.PORT ?? 3400;
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// Static uploads
+// Static files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/downloads', express.static(path.join(process.cwd(), 'public/downloads')));
 
 // API routes
 app.use('/api/users', usersRouter);
