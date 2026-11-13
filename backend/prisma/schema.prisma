@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  fullName      String
+  username      String   @unique
+  email         String   @unique
+  phoneNumber   String   @unique
+  countryCode   String   @default("+1")
+  avatarSeed    String   @default("0")
+  phoneVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  coupleAsA     Couple?  @relation("UserA")
+  coupleAsB     Couple?  @relation("UserB")
+  memories      Memory[]
+  dedications   Dedication[]
+  chatMessages  ChatMessage[]
+  playlists     Playlist[]
+
+  @@map("users")
+}
+
+model Couple {
+  id              String   @id @default(uuid())
+  userAId         String   @unique
+  userBId         String   @unique
+  anniversaryDate DateTime
+  connectedAt     DateTime @default(now())
+
+  userA     User   @relation("UserA", fields: [userAId], references: [id])
+  userB     User   @relation("UserB", fields: [userBId], references: [id])
+  memories  Memory[]
+  dedications Dedication[]
+  chatMessages ChatMessage[]
+  playlists    Playlist[]
+
+  @@map("couples")
+}
+
+model Song {
+  id          String   @id @default(uuid())
+  title       String
+  artist      String
+  album       String
+  durationSecs Int
+  artworkSeed Int      @default(0)
+  moods       String[] @default([])
+  genres      String[] @default([])
+  isEthiopian Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  dedications  Dedication[]
+  memoryLinks  MemorySong[]
+  playlistItems PlaylistItem[]
+
+  @@map("songs")
+}
+
+model Memory {
+  id              String   @id @default(uuid())
+  title           String
+  description     String
+  date            DateTime
+  location        String?
+  reactions       String[] @default([])
+  createdByUserId String
+  coupleId        String?
+  createdAt       DateTime @default(now())
+
+  createdBy   User    @relation(fields: [createdByUserId], references: [id])
+  couple      Couple? @relation(fields: [coupleId], references: [id])
+  comments    MemoryComment[]
+  songLinks   MemorySong[]
+  photos      MemoryPhoto[]
+
+  @@map("memories")
+}
+
+model MemoryPhoto {
+  id        String @id @default(uuid())
+  memoryId  String
+  url       String
+  createdAt DateTime @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@map("memory_photos")
+}
+
+model MemorySong {
+  memoryId String
+  songId   String
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  song   Song   @relation(fields: [songId], references: [id])
+
+  @@id([memoryId, songId])
+  @@map("memory_songs")
+}
+
+model MemoryComment {
+  id        String   @id @default(uuid())
+  memoryId  String
+  authorId  String
+  text      String
+  createdAt DateTime @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@map("memory_comments")
+}
+
+model Dedication {
+  id          String   @id @default(uuid())
+  fromUserId  String
+  songId      String
+  coupleId    String?
+  type        String
+  message     String
+  photoSeed   Int?
+  scheduledFor DateTime?
+  delivered   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  fromUser User   @relation(fields: [fromUserId], references: [id])
+  song     Song   @relation(fields: [songId], references: [id])
+  couple   Couple? @relation(fields: [coupleId], references: [id])
+
+  @@map("dedications")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  coupleId  String
+  senderId  String
+  text      String?
+  songId    String?
+  imageUrl  String?
+  type      String   @default("text")
+  createdAt DateTime @default(now())
+
+  couple Couple @relation(fields: [coupleId], references: [id])
+  sender User   @relation(fields: [senderId], references: [id])
+
+  @@map("chat_messages")
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  coupleId    String?
+  createdById String
+  isShared    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  createdBy User    @relation(fields: [createdById], references: [id])
+  couple    Couple? @relation(fields: [coupleId], references: [id])
+  items     PlaylistItem[]
+
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id         String @id @default(uuid())
+  playlistId String
+  songId     String
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id])
+
+  @@unique([playlistId, songId])
+  @@map("playlist_items")
+}

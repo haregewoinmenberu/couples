@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OurSound Admin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2130;
+    --border: #262b3a;
+    --fg: #f0f2f8;
+    --fg2: #8b93b0;
+    --fg3: #4a5068;
+    --pink: #f43f8e;
+    --pink-dim: #f43f8e22;
+    --purple: #a855f7;
+    --purple-dim: #a855f722;
+    --blue: #3b82f6;
+    --blue-dim: #3b82f622;
+    --green: #22c55e;
+    --green-dim: #22c55e22;
+    --orange: #f97316;
+    --orange-dim: #f9731622;
+    --teal: #14b8a6;
+    --teal-dim: #14b8a622;
+    --gold: #eab308;
+    --gold-dim: #eab30822;
+    --r: 10px;
+    color-scheme: dark;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    display: flex;
+    min-height: 100%;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .logo-icon { font-size: 24px; }
+  .logo-name { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: var(--fg); }
+  .logo-sub { font-size: 11px; color: var(--fg3); letter-spacing: .04em; text-transform: uppercase; }
+  nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px;
+    font-size: 13px; font-weight: 500;
+    color: var(--fg2);
+    text-decoration: none;
+    border-radius: 6px;
+    margin: 1px 8px;
+    transition: background .12s, color .12s;
+    cursor: pointer;
+  }
+  nav a:hover, nav a.active { background: var(--surface2); color: var(--fg); }
+  nav a.active { color: var(--pink); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* Main */
+  .main {
+    flex: 1;
+    overflow: auto;
+    padding: 32px;
+    min-width: 0;
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Page header */
+  .page-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px; font-weight: 700;
+    margin-bottom: 24px;
+  }
+
+  /* Stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-bottom: 32px; }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 20px;
+  }
+  .tile-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--fg3); margin-bottom: 8px; }
+  .tile-val { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Table card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .card-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-head-title { font-size: 14px; font-weight: 600; }
+  .refresh-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--fg2);
+    font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 6px;
+    cursor: pointer; font-family: 'Inter', sans-serif;
+    transition: color .12s;
+  }
+  .refresh-btn:hover { color: var(--fg); }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 10px 16px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--fg3); border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--border); color: var(--fg2); vertical-align: middle; }
+  td:first-child { color: var(--fg); font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .badge-pink { background: var(--pink-dim); color: var(--pink); }
+  .badge-green { background: var(--green-dim); color: var(--green); }
+  .badge-blue { background: var(--blue-dim); color: var(--blue); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
+  .badge-orange { background: var(--orange-dim); color: var(--orange); }
+  .badge-teal { background: var(--teal-dim); color: var(--teal); }
+  .badge-gold { background: var(--gold-dim); color: var(--gold); }
+
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: white;
+    flex-shrink: 0;
+  }
+  .user-cell { display: flex; align-items: center; gap: 10px; }
+
+  .empty { padding: 40px; text-align: center; color: var(--fg3); font-size: 13px; }
+  .loading { padding: 40px; text-align: center; color: var(--fg3); font-size: 13px; }
+  .error { padding: 20px; color: #f87171; font-size: 13px; }
+
+  .couple-pair {
+    display: flex; align-items: center; gap: 6px; font-size: 13px;
+  }
+  .couple-heart { color: var(--pink); }
+
+  /* Delete btn */
+  .del-btn {
+    background: none; border: none; color: var(--fg3); cursor: pointer;
+    font-size: 14px; padding: 2px 6px; border-radius: 4px;
+    transition: color .12s, background .12s;
+  }
+  .del-btn:hover { color: #f87171; background: #f8717122; }
+
+  @media (max-width: 700px) {
+    .sidebar { display: none; }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🎵</div>
+    <div class="logo-name">OurSound</div>
+    <div class="logo-sub">Admin Panel</div>
+  </div>
+  <nav>
+    <a class="active" onclick="show('dashboard')" id="nav-dashboard"><span class="nav-icon">📊</span> Dashboard</a>
+    <a onclick="show('users')" id="nav-users"><span class="nav-icon">👤</span> Users</a>
+    <a onclick="show('couples')" id="nav-couples"><span class="nav-icon">💑</span> Couples</a>
+    <a onclick="show('memories')" id="nav-memories"><span class="nav-icon">📸</span> Memories</a>
+    <a onclick="show('songs')" id="nav-songs"><span class="nav-icon">🎵</span> Songs</a>
+    <a onclick="show('playlists')" id="nav-playlists"><span class="nav-icon">📋</span> Playlists</a>
+    <a onclick="show('dedications')" id="nav-dedications"><span class="nav-icon">💌</span> Dedications</a>
+    <a onclick="show('chat')" id="nav-chat"><span class="nav-icon">💬</span> Chat</a>
+  </nav>
+</aside>
+
+<main class="main">
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-title">Dashboard</div>
+    <div class="tiles" id="stat-tiles"><div class="loading">Loading…</div></div>
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">Recent couples</span></div>
+      <div class="tbl-wrap"><table id="dash-couples-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-head-title">Recent memories</span></div>
+      <div class="tbl-wrap"><table id="dash-memories-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="page" id="page-users">
+    <div class="page-title">Users</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="users-count">All users</span>
+        <button class="refresh-btn" onclick="loadUsers()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="users-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Couples -->
+  <div class="page" id="page-couples">
+    <div class="page-title">Couples</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="couples-count">All couples</span>
+        <button class="refresh-btn" onclick="loadCouples()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="couples-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Memories -->
+  <div class="page" id="page-memories">
+    <div class="page-title">Memories & Photos</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="memories-count">All memories</span>
+        <button class="refresh-btn" onclick="loadMemories()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="memories-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Songs -->
+  <div class="page" id="page-songs">
+    <div class="page-title">Songs</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="songs-count">All songs</span>
+        <button class="refresh-btn" onclick="loadSongs()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="songs-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Playlists -->
+  <div class="page" id="page-playlists">
+    <div class="page-title">Playlists</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="playlists-count">All playlists</span>
+        <button class="refresh-btn" onclick="loadPlaylists()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="playlists-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Dedications -->
+  <div class="page" id="page-dedications">
+    <div class="page-title">Dedications</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="dedications-count">All dedications</span>
+        <button class="refresh-btn" onclick="loadDedications()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="dedications-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="page" id="page-chat">
+    <div class="page-title">Chat Messages</div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="chat-count">Recent messages</span>
+        <button class="refresh-btn" onclick="loadChat()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="chat-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const BASE = '';   // same origin
+
+  const AVATAR_COLORS = ['#f43f8e','#a855f7','#3b82f6','#22c55e','#f97316','#14b8a6','#eab308','#ef4444'];
+  function avatarColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  }
+  function initials(name) {
+    const p = name.trim().split(' ');
+    return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase();
+  }
+  function avatarHtml(name) {
+    return `<span class="avatar" style="background:${avatarColor(name)}">${initials(name)}</span>`;
+  }
+  function userCell(name) {
+    return `<div class="user-cell">${avatarHtml(name)}<span>${esc(name)}</span></div>`;
+  }
+  function esc(s) {
+    if (s == null) return '—';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  }
+  function fmtDur(secs) {
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+  function daysSince(d) {
+    return Math.floor((Date.now() - new Date(d)) / 86400000);
+  }
+
+  async function apiFetch(path) {
+    const r = await fetch(BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  // Navigation
+  const pages = ['dashboard','users','couples','memories','songs','playlists','dedications','chat'];
+  function show(name) {
+    pages.forEach(p => {
+      document.getElementById('page-' + p).classList.toggle('active', p === name);
+      document.getElementById('nav-' + p).classList.toggle('active', p === name);
+    });
+    const loaders = { users: loadUsers, couples: loadCouples, memories: loadMemories,
+      songs: loadSongs, playlists: loadPlaylists, dedications: loadDedications, chat: loadChat };
+    if (loaders[name]) loaders[name]();
+  }
+
+  // Dashboard
+  async function loadDashboard() {
+    try {
+      const [stats, couples, memories] = await Promise.all([
+        apiFetch('/admin/stats'),
+        apiFetch('/admin/couples'),
+        apiFetch('/admin/memories'),
+      ]);
+
+      const tileData = [
+        { label: 'Users', val: stats.users, color: '--pink' },
+        { label: 'Couples', val: stats.couples, color: '--purple' },
+        { label: 'Memories', val: stats.memories, color: '--blue' },
+        { label: 'Songs', val: stats.songs, color: '--teal' },
+        { label: 'Playlists', val: stats.playlists, color: '--orange' },
+        { label: 'Dedications', val: stats.dedications, color: '--gold' },
+        { label: 'Messages', val: stats.messages, color: '--green' },
+      ];
+      document.getElementById('stat-tiles').innerHTML = tileData.map(t =>
+        `<div class="tile">
+          <div class="tile-label">${t.label}</div>
+          <div class="tile-val" style="color:var(${t.color})">${t.val}</div>
+        </div>`
+      ).join('');
+
+      // Recent couples
+      const ctbl = document.getElementById('dash-couples-tbl');
+      if (!couples.length) { ctbl.innerHTML = '<tr><td class="empty">No couples yet</td></tr>'; }
+      else {
+        ctbl.innerHTML = `<thead><tr><th>Partner A</th><th>Partner B</th><th>Anniversary</th><th>Days together</th><th>Memories</th></tr></thead><tbody>` +
+          couples.slice(0,5).map(c => `<tr>
+            <td>${userCell(c.userA.fullName)}</td>
+            <td>${userCell(c.userB.fullName)}</td>
+            <td>${fmtDate(c.anniversaryDate)}</td>
+            <td><span class="badge badge-pink">${daysSince(c.anniversaryDate)} days</span></td>
+            <td>${c._count.memories}</td>
+          </tr>`).join('') + '</tbody>';
+      }
+
+      // Recent memories
+      const mtbl = document.getElementById('dash-memories-tbl');
+      if (!memories.length) { mtbl.innerHTML = '<tr><td class="empty">No memories yet</td></tr>'; }
+      else {
+        mtbl.innerHTML = `<thead><tr><th>Title</th><th>Created by</th><th>Date</th><th>Location</th><th>Photos</th><th>Reactions</th></tr></thead><tbody>` +
+          memories.slice(0,5).map(m => `<tr>
+            <td>${esc(m.title)}</td>
+            <td>${esc(m.createdBy.fullName)}</td>
+            <td>${fmtDate(m.date)}</td>
+            <td>${esc(m.location)}</td>
+            <td>${m._count.photos}</td>
+            <td>${(m.reactions || []).join(' ') || '—'}</td>
+          </tr>`).join('') + '</tbody>';
+      }
+    } catch(e) {
+      document.getElementById('stat-tiles').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  // Users
+  async function loadUsers() {
+    const tbl = document.getElementById('users-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const users = await apiFetch('/admin/users');
+      document.getElementById('users-count').textContent = `All users (${users.length})`;
+      if (!users.length) { tbl.innerHTML = '<tr><td class="empty">No users yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Verified</th><th>Couple</th><th>Memories</th><th>Dedications</th><th>Joined</th></tr></thead><tbody>` +
+        users.map(u => `<tr>
+          <td>${userCell(u.fullName)}</td>
+          <td style="color:var(--fg3)">@${esc(u.username)}</td>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.phoneNumber)}</td>
+          <td>${u.phoneVerified ? '<span class="badge badge-green">✓ Yes</span>' : '<span class="badge badge-orange">No</span>'}</td>
+          <td>${(u.coupleAsA || u.coupleAsB) ? '<span class="badge badge-pink">Paired</span>' : '<span class="badge" style="background:var(--surface2);color:var(--fg3)">Single</span>'}</td>
+          <td>${u._count.memories}</td>
+          <td>${u._count.dedications}</td>
+          <td>${fmtDate(u.createdAt)}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Couples
+  async function loadCouples() {
+    const tbl = document.getElementById('couples-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const couples = await apiFetch('/admin/couples');
+      document.getElementById('couples-count').textContent = `All couples (${couples.length})`;
+      if (!couples.length) { tbl.innerHTML = '<tr><td class="empty">No couples yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Couple</th><th>Anniversary</th><th>Days together</th><th>Connected</th><th>Memories</th><th>Songs</th><th>Playlists</th><th>Messages</th></tr></thead><tbody>` +
+        couples.map(c => `<tr>
+          <td><div class="couple-pair">${avatarHtml(c.userA.fullName)}<span class="couple-heart">♥</span>${avatarHtml(c.userB.fullName)}<span>${esc(c.userA.fullName)} &amp; ${esc(c.userB.fullName)}</span></div></td>
+          <td>${fmtDate(c.anniversaryDate)}</td>
+          <td><span class="badge badge-pink">${daysSince(c.anniversaryDate)} days</span></td>
+          <td>${fmtDate(c.connectedAt)}</td>
+          <td>${c._count.memories}</td>
+          <td>${c._count.dedications}</td>
+          <td>${c._count.playlists}</td>
+          <td>${c._count.chatMessages}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Memories
+  async function loadMemories() {
+    const tbl = document.getElementById('memories-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const memories = await apiFetch('/admin/memories');
+      document.getElementById('memories-count').textContent = `All memories (${memories.length})`;
+      if (!memories.length) { tbl.innerHTML = '<tr><td class="empty">No memories yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Title</th><th>Created by</th><th>Date</th><th>Location</th><th>Photos</th><th>Comments</th><th>Reactions</th><th>Added</th></tr></thead><tbody>` +
+        memories.map(m => `<tr>
+          <td>${esc(m.title)}</td>
+          <td>${esc(m.createdBy.fullName)}</td>
+          <td>${fmtDate(m.date)}</td>
+          <td>${m.location ? `<span class="badge badge-blue">📍 ${esc(m.location)}</span>` : '—'}</td>
+          <td>${m._count.photos > 0 ? `<span class="badge badge-purple">🖼 ${m._count.photos}</span>` : '0'}</td>
+          <td>${m._count.comments}</td>
+          <td>${(m.reactions || []).join(' ') || '—'}</td>
+          <td>${fmtDate(m.createdAt)}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Songs
+  async function loadSongs() {
+    const tbl = document.getElementById('songs-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const songs = await apiFetch('/admin/songs');
+      document.getElementById('songs-count').textContent = `All songs (${songs.length})`;
+      if (!songs.length) { tbl.innerHTML = '<tr><td class="empty">No songs yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Title</th><th>Artist</th><th>Album</th><th>Duration</th><th>Genres</th><th>Moods</th><th>Ethiopian</th><th>Dedications</th><th>In playlists</th></tr></thead><tbody>` +
+        songs.map(s => `<tr>
+          <td>${esc(s.title)}</td>
+          <td>${esc(s.artist)}</td>
+          <td style="color:var(--fg3)">${esc(s.album)}</td>
+          <td style="font-variant-numeric:tabular-nums">${fmtDur(s.durationSecs)}</td>
+          <td>${(s.genres||[]).map(g=>`<span class="badge badge-teal">${esc(g)}</span>`).join(' ')||'—'}</td>
+          <td>${(s.moods||[]).map(g=>`<span class="badge badge-purple">${esc(g)}</span>`).join(' ')||'—'}</td>
+          <td>${s.isEthiopian ? '<span class="badge badge-gold">🇪🇹 Yes</span>' : '—'}</td>
+          <td>${s._count.dedications}</td>
+          <td>${s._count.playlistItems}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Playlists
+  async function loadPlaylists() {
+    const tbl = document.getElementById('playlists-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const playlists = await apiFetch('/admin/playlists');
+      document.getElementById('playlists-count').textContent = `All playlists (${playlists.length})`;
+      if (!playlists.length) { tbl.innerHTML = '<tr><td class="empty">No playlists yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Name</th><th>Created by</th><th>Songs</th><th>Shared</th><th>Created</th></tr></thead><tbody>` +
+        playlists.map(p => `<tr>
+          <td>${esc(p.name)}</td>
+          <td>${esc(p.createdBy.fullName)}</td>
+          <td><span class="badge badge-teal">♪ ${p._count.items}</span></td>
+          <td>${p.isShared ? '<span class="badge badge-green">Shared</span>' : '<span class="badge" style="background:var(--surface2);color:var(--fg3)">Private</span>'}</td>
+          <td>${fmtDate(p.createdAt)}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Dedications
+  async function loadDedications() {
+    const tbl = document.getElementById('dedications-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const deds = await apiFetch('/admin/dedications');
+      document.getElementById('dedications-count').textContent = `All dedications (${deds.length})`;
+      if (!deds.length) { tbl.innerHTML = '<tr><td class="empty">No dedications yet</td></tr>'; return; }
+      const typeColors = { loveYou:'badge-pink', missYou:'badge-blue', thankYou:'badge-green',
+        thinkingOfYou:'badge-purple', specialOccasion:'badge-gold', justBecause:'badge-orange' };
+      const typeLabels = { loveYou:'I Love You', missYou:'I Miss You', thankYou:'Thank You',
+        thinkingOfYou:'Thinking of You', specialOccasion:'Special Occasion', justBecause:'Just Because' };
+      tbl.innerHTML = `<thead><tr><th>From</th><th>Song</th><th>Type</th><th>Message</th><th>Delivered</th><th>Scheduled</th><th>Sent</th></tr></thead><tbody>` +
+        deds.map(d => `<tr>
+          <td>${userCell(d.fromUser.fullName)}</td>
+          <td><span style="color:var(--teal)">♪</span> ${esc(d.song.title)}<br><span style="font-size:11px;color:var(--fg3)">${esc(d.song.artist)}</span></td>
+          <td><span class="badge ${typeColors[d.type]||'badge-blue'}">${typeLabels[d.type]||esc(d.type)}</span></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.message)}">${esc(d.message)}</td>
+          <td>${d.delivered ? '<span class="badge badge-green">✓ Yes</span>' : '<span class="badge badge-orange">Pending</span>'}</td>
+          <td>${d.scheduledFor ? fmtDate(d.scheduledFor) : '—'}</td>
+          <td>${fmtDate(d.createdAt)}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Chat
+  async function loadChat() {
+    const tbl = document.getElementById('chat-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const msgs = await apiFetch('/admin/chat');
+      document.getElementById('chat-count').textContent = `Recent messages (${msgs.length})`;
+      if (!msgs.length) { tbl.innerHTML = '<tr><td class="empty">No messages yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Sender</th><th>Couple</th><th>Type</th><th>Content</th><th>Sent</th></tr></thead><tbody>` +
+        msgs.map(m => `<tr>
+          <td>${userCell(m.sender.fullName)}</td>
+          <td style="font-size:12px;color:var(--fg3)">${m.couple ? esc(m.couple.userA.fullName)+' & '+esc(m.couple.userB.fullName) : '—'}</td>
+          <td><span class="badge ${m.type==='song'?'badge-teal':m.type==='image'?'badge-purple':'badge-blue'}">${esc(m.type)}</span></td>
+          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.songId?'🎵 ':''}${esc(m.text)||'—'}</td>
+          <td>${fmtDate(m.createdAt)}</td>
+        </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Boot
+  loadDashboard();
+</script>
+</body>
+</html>

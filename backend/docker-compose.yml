@@ -1,0 +1,38 @@
+name: oursound
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oursound
+      POSTGRES_USER: oursound
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oursound}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U oursound -d oursound']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://oursound:${POSTGRES_PASSWORD:-oursound}@db:5432/oursound?schema=public
+      PORT: "3400"
+      NODE_ENV: production
+    ports:
+      - "${PORT:-3400}:3400"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  db-data:
+  uploads:
