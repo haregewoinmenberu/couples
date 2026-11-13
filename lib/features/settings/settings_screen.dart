@@ -95,6 +95,11 @@ class SettingsScreen extends ConsumerWidget {
           ]),
           _Section(title: 'Privacy', items: [
             _SettingsItem(
+                icon: Icons.admin_panel_settings_outlined,
+                label: 'Privacy & Permissions',
+                subtitle: 'Manage what data you share',
+                onTap: () => context.push('/privacy')),
+            _SettingsItem(
                 icon: Icons.visibility_outlined,
                 label: 'Profile Visibility',
                 onTap: () {}),

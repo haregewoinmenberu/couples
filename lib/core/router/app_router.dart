@@ -68,6 +68,9 @@ import '../../features/profile/profile_screen.dart';
 // Settings
 import '../../features/settings/settings_screen.dart';
 
+// Privacy
+import '../../features/privacy/privacy_screen.dart';
+
 // Notifications
 import '../../features/notifications/notifications_screen.dart';
 
@@ -206,6 +209,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/favorites',
           builder: (_, __) => const FavoritesScreen()),
+      GoRoute(
+          path: '/privacy',
+          builder: (_, __) => const PrivacyScreen()),
     ],
   );
 });

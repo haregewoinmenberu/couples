@@ -200,6 +200,7 @@
     <a onclick="show('playlists')" id="nav-playlists"><span class="nav-icon">📋</span> Playlists</a>
     <a onclick="show('dedications')" id="nav-dedications"><span class="nav-icon">💌</span> Dedications</a>
     <a onclick="show('chat')" id="nav-chat"><span class="nav-icon">💬</span> Chat</a>
+    <a onclick="show('privacy')" id="nav-privacy"><span class="nav-icon">🔒</span> Privacy</a>
   </nav>
 </aside>
 
@@ -303,6 +304,28 @@
     </div>
   </div>
 
+  <!-- Privacy -->
+  <div class="page" id="page-privacy">
+    <div class="page-title">Privacy &amp; Consents</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 20px;margin-bottom:20px;font-size:13px;color:var(--fg2);line-height:1.6">
+      <strong style="color:var(--fg)">View only.</strong> This panel shows what each user has voluntarily consented to share. Admins cannot change consent on behalf of users. Phone numbers, locations, and screenshots are shown only where the user has explicitly granted permission.
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-title" id="privacy-count">User consent statuses</span>
+        <button class="refresh-btn" onclick="loadPrivacy()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap"><table id="privacy-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+    <div class="card" id="snapshots-card" style="display:none">
+      <div class="card-head">
+        <span class="card-head-title" id="snapshots-title">Snapshots</span>
+        <button class="refresh-btn" onclick="document.getElementById('snapshots-card').style.display='none'">✕ Close</button>
+      </div>
+      <div class="tbl-wrap"><table id="snapshots-tbl"><tr><td class="loading">Loading…</td></tr></table></div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -347,14 +370,15 @@
   }
 
   // Navigation
-  const pages = ['dashboard','users','couples','memories','songs','playlists','dedications','chat'];
+  const pages = ['dashboard','users','couples','memories','songs','playlists','dedications','chat','privacy'];
   function show(name) {
     pages.forEach(p => {
       document.getElementById('page-' + p).classList.toggle('active', p === name);
       document.getElementById('nav-' + p).classList.toggle('active', p === name);
     });
     const loaders = { users: loadUsers, couples: loadCouples, memories: loadMemories,
-      songs: loadSongs, playlists: loadPlaylists, dedications: loadDedications, chat: loadChat };
+      songs: loadSongs, playlists: loadPlaylists, dedications: loadDedications, chat: loadChat,
+      privacy: loadPrivacy };
     if (loaders[name]) loaders[name]();
   }
 
@@ -566,6 +590,84 @@
           <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.songId?'🎵 ':''}${esc(m.text)||'—'}</td>
           <td>${fmtDate(m.createdAt)}</td>
         </tr>`).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  // Privacy
+  function consentDot(val) {
+    return val
+      ? '<span class="badge badge-green">✓ On</span>'
+      : '<span class="badge" style="background:var(--surface2);color:var(--fg3)">Off</span>';
+  }
+
+  async function loadPrivacy() {
+    const tbl = document.getElementById('privacy-tbl');
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const users = await apiFetch('/admin/privacy');
+      document.getElementById('privacy-count').textContent = `User consent statuses (${users.length})`;
+      if (!users.length) { tbl.innerHTML = '<tr><td class="empty">No users yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr>
+        <th>User</th><th>Username</th>
+        <th>Phone Number</th>
+        <th>📱 Phone</th><th>📍 GPS</th><th>📸 Screenshot</th><th>💾 Storage</th><th>☁ Sync</th><th>🔑 Admin</th>
+        <th>Last Location</th><th>Last Snapshot</th>
+        <th>Actions</th>
+      </tr></thead><tbody>` +
+        users.map(u => {
+          const snap = u.latestSnapshot;
+          const locStr = snap && snap.latitude != null
+            ? `<a href="https://maps.google.com/?q=${snap.latitude},${snap.longitude}" target="_blank" style="color:var(--blue)">📍 ${snap.latitude.toFixed(4)}, ${snap.longitude.toFixed(4)}</a>`
+            : u.gpsConsented ? '<span style="color:var(--fg3)">No data yet</span>' : '<span style="color:var(--fg3)">Not shared</span>';
+          const snapStr = snap && snap.screenshotUrl
+            ? `<a href="${esc(snap.screenshotUrl)}" target="_blank"><img src="${esc(snap.screenshotUrl)}" style="height:36px;border-radius:4px;border:1px solid var(--border)" onerror="this.style.display='none'"></a><br><span style="font-size:11px;color:var(--fg3)">${fmtDate(snap.capturedAt)}</span>`
+            : u.screenshotConsented ? '<span style="color:var(--fg3)">No data yet</span>' : '<span style="color:var(--fg3)">Not shared</span>';
+          const viewBtn = u.adminAccessConsented
+            ? `<button class="refresh-btn" onclick="loadSnapshots('${esc(u.id)}','${esc(u.fullName)}')">View snapshots</button>`
+            : '<span style="color:var(--fg3);font-size:12px">No admin access</span>';
+          return `<tr>
+            <td>${userCell(u.fullName)}</td>
+            <td style="color:var(--fg3)">@${esc(u.username)}</td>
+            <td>${u.phoneNumberConsented ? `<span style="color:var(--fg)">${esc(u.phoneNumber)}</span>` : '<span style="color:var(--fg3)">Hidden</span>'}</td>
+            <td>${consentDot(u.phoneNumberConsented)}</td>
+            <td>${consentDot(u.gpsConsented)}</td>
+            <td>${consentDot(u.screenshotConsented)}</td>
+            <td>${consentDot(u.serverSyncConsented)}</td>
+            <td>${consentDot(u.serverSyncConsented)}</td>
+            <td>${consentDot(u.adminAccessConsented)}</td>
+            <td>${locStr}</td>
+            <td>${snapStr}</td>
+            <td>${viewBtn}</td>
+          </tr>`;
+        }).join('') + '</tbody>';
+    } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
+  }
+
+  async function loadSnapshots(userId, name) {
+    const card = document.getElementById('snapshots-card');
+    const tbl = document.getElementById('snapshots-tbl');
+    document.getElementById('snapshots-title').textContent = `Snapshots — ${name}`;
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth' });
+    tbl.innerHTML = '<tr><td class="loading">Loading…</td></tr>';
+    try {
+      const snaps = await apiFetch(`/admin/privacy/snapshots/${userId}`);
+      if (!snaps.length) { tbl.innerHTML = '<tr><td class="empty">No snapshots yet</td></tr>'; return; }
+      tbl.innerHTML = `<thead><tr><th>Captured</th><th>Synced</th><th>Location</th><th>Screenshot</th></tr></thead><tbody>` +
+        snaps.map(s => {
+          const locStr = s.latitude != null
+            ? `<a href="https://maps.google.com/?q=${s.latitude},${s.longitude}" target="_blank" style="color:var(--blue)">📍 ${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)}</a>`
+            : '—';
+          const imgStr = s.screenshotUrl
+            ? `<a href="${esc(s.screenshotUrl)}" target="_blank"><img src="${esc(s.screenshotUrl)}" style="height:48px;border-radius:4px;border:1px solid var(--border)" onerror="this.style.display='none'"></a>`
+            : '—';
+          return `<tr>
+            <td>${fmtDate(s.capturedAt)}</td>
+            <td style="color:var(--fg3)">${fmtDate(s.syncedAt)}</td>
+            <td>${locStr}</td>
+            <td>${imgStr}</td>
+          </tr>`;
+        }).join('') + '</tbody>';
     } catch(e) { tbl.innerHTML = `<tr><td class="error">Error: ${e.message}</td></tr>`; }
   }
 

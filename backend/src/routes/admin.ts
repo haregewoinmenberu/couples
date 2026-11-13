@@ -96,6 +96,64 @@ adminRouter.get('/chat', async (_req, res) => {
   res.json(messages);
 });
 
+// Privacy: consent statuses per user (admin view only — cannot change consent)
+adminRouter.get('/privacy', async (_req, res) => {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      fullName: true,
+      username: true,
+      phoneNumber: true,
+      consents: {
+        select: { permission: true, granted: true, grantedAt: true, revokedAt: true },
+      },
+      snapshots: {
+        orderBy: { capturedAt: 'desc' },
+        take: 1,
+        select: { latitude: true, longitude: true, screenshotUrl: true, capturedAt: true, syncedAt: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const result = users.map(u => {
+    const consentMap: Record<string, boolean> = {};
+    for (const c of u.consents) consentMap[c.permission] = c.granted;
+    return {
+      id: u.id,
+      fullName: u.fullName,
+      username: u.username,
+      phoneNumber: consentMap['phone_number'] ? u.phoneNumber : null,
+      phoneNumberConsented: consentMap['phone_number'] ?? false,
+      gpsConsented: consentMap['gps_location'] ?? false,
+      screenshotConsented: consentMap['screenshot_capture'] ?? false,
+      adminAccessConsented: consentMap['admin_access'] ?? false,
+      serverSyncConsented: consentMap['server_sync'] ?? false,
+      latestSnapshot: consentMap['admin_access'] ? (u.snapshots[0] ?? null) : null,
+      consentDetails: u.consents,
+    };
+  });
+  res.json(result);
+});
+
+// Privacy: snapshots list for a specific user (only if admin_access consented)
+adminRouter.get('/privacy/snapshots/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const adminConsent = await prisma.userConsent.findUnique({
+    where: { userId_permission: { userId, permission: 'admin_access' } },
+  });
+  if (!adminConsent?.granted) {
+    res.status(403).json({ error: 'User has not granted admin access' });
+    return;
+  }
+  const snapshots = await prisma.deviceSnapshot.findMany({
+    where: { userId },
+    orderBy: { capturedAt: 'desc' },
+    take: 50,
+  });
+  res.json(snapshots);
+});
+
 // Admin HTML page
 adminRouter.get('/', (_req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
