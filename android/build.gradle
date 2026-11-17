@@ -13,6 +13,19 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Some third-party Android libraries (e.g. flutter_inappwebview) still rely
+// on the manifest package attribute. AGP 8 requires an explicit namespace, so
+// supply a safe fallback for any library module that doesn't declare one.
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            if (project.android.namespace == null) {
+                project.android.namespace = "com.oursound.${project.name.replaceAll(/[^A-Za-z0-9]/, '')}"
+            }
+        }
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
