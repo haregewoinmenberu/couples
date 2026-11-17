@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/utils/navigation_helpers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../../widgets/youtube_view.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -120,20 +120,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               const SizedBox(height: 20),
               // Artwork / embedded YouTube video
               if (song.isYouTube)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: YoutubePlayer(
-                    controller: YoutubePlayerController(
-                      initialVideoId: song.youtubeId!,
-                      flags: const YoutubePlayerFlags(
-                        autoPlay: true,
-                        mute: false,
-                        controlsVisibleAtStart: true,
-                      ),
-                    ),
-                    showVideoProgressIndicator: true,
-                    progressIndicatorColor: AppColors.rose,
-                  ),
+                buildYouTubeView(
+                  song.youtubeId!,
+                  thumbnail: song.thumbnailUrl,
                 )
               else
                 ArtworkTile(

