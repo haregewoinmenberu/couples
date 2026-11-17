@@ -13,23 +13,6 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// AGP 8 requires an explicit namespace on every Android library module. Some
-// third-party plugins still rely only on the manifest package attribute.
-subprojects { sub ->
-    def ns = "com.oursound.${sub.name.replaceAll(/[^A-Za-z0-9]/, '')}"
-    try {
-        sub.afterEvaluate { p ->
-            if (p.hasProperty('android') && p.android.namespace == null) {
-                p.android.namespace = ns
-            }
-        }
-    } catch (Exception ignored) {
-        if (sub.hasProperty('android') && sub.android.namespace == null) {
-            sub.android.namespace = ns
-        }
-    }
-}
-
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
