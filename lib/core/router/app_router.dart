@@ -81,22 +81,26 @@ final _rootKey = GlobalKey<NavigatorState>();
 final _shellKey = GlobalKey<NavigatorState>();
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final session = ref.watch(sessionProvider);
-
+  // A single stable GoRouter. Auth navigation is driven explicitly by the
+  // splash/login/register/logout screens, so we never rebuild the router or
+  // fire a refresh mid-navigation (which can duplicate Navigator page keys).
   return GoRouter(
     navigatorKey: _rootKey,
     initialLocation: '/splash',
     redirect: (context, state) {
-      // Don't redirect while loading persisted auth
-      if (session.isLoading) return '/splash';
+      // Read the current state on every redirect — never capture it.
+      final session = ref.read(sessionProvider);
+      if (session.isLoading) return null;
 
       final authenticated = session.isAuthenticated;
       final onAuthPath = state.matchedLocation.startsWith('/auth') ||
           state.matchedLocation.startsWith('/onboarding') ||
           state.matchedLocation == '/splash' ||
-          state.matchedLocation.startsWith('/connection');
+          state.matchedLocation.startsWith('/connection') ||
+          state.matchedLocation == '/welcome';
 
       if (!authenticated && !onAuthPath) return '/welcome';
+      if (authenticated && state.matchedLocation == '/welcome') return '/home';
       return null;
     },
     routes: [

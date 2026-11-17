@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 
 const _base = 'http://107.170.39.158:3401';
@@ -90,8 +91,42 @@ class ApiService {
 
   // ── Songs ──────────────────────────────────────────────────────────────────
 
-  static Future<List<dynamic>> getSongs() async {
-    return await _req('GET', '/api/songs');
+  static Future<List<dynamic>> getSongs({
+    String? search,
+    String? mood,
+    String? genre,
+    bool? isEthiopian,
+  }) async {
+    final q = <String, String>{};
+    if (search != null && search.isNotEmpty) q['search'] = search;
+    if (mood != null && mood.isNotEmpty) q['mood'] = mood;
+    if (genre != null && genre.isNotEmpty) q['genre'] = genre;
+    if (isEthiopian != null) q['isEthiopian'] = isEthiopian.toString();
+    final suffix = q.isEmpty
+        ? ''
+        : '?${q.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&')}';
+    return await _req('GET', '/api/songs$suffix');
+  }
+
+  static Future<Map<String, dynamic>> createSong({
+    required String title,
+    required String artist,
+    required String album,
+    required int durationSecs,
+    List<String> moods = const [],
+    List<String> genres = const [],
+    bool isEthiopian = false,
+  }) async {
+    return await _req('POST', '/api/songs', body: {
+      'title': title,
+      'artist': artist,
+      'album': album,
+      'durationSecs': durationSecs,
+      'artworkSeed': 0,
+      'moods': moods,
+      'genres': genres,
+      'isEthiopian': isEthiopian,
+    });
   }
 
   // ── Chat ───────────────────────────────────────────────────────────────────
@@ -185,6 +220,25 @@ class ApiService {
     }
   }
 
+  static Future<String> uploadVideo(XFile file) async {
+    final uri = Uri.parse('$_base/api/chat/upload-video');
+    final req = http.MultipartRequest('POST', uri);
+    if (kIsWeb) {
+      req.files.add(http.MultipartFile.fromBytes(
+        'video',
+        await file.readAsBytes(),
+        filename: file.name,
+      ));
+    } else {
+      req.files.add(await http.MultipartFile.fromPath('video', file.path));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    if (res.statusCode >= 400) throw ApiException(res.statusCode, res.body);
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return '$_base${data['url']}';
+  }
+
   /// Create a memory and upload its photos in one multipart request.
   static Future<Map<String, dynamic>> createMemoryWithPhotos({
     required String title,
@@ -193,7 +247,7 @@ class ApiService {
     required String createdByUserId,
     String? coupleId,
     String? location,
-    List<File> photos = const [],
+    List<XFile> photos = const [],
   }) async {
     final uri = Uri.parse('$_base/api/memories');
     final req = http.MultipartRequest('POST', uri)
@@ -204,12 +258,33 @@ class ApiService {
     if (coupleId != null) req.fields['coupleId'] = coupleId;
     if (location != null) req.fields['location'] = location;
     for (final file in photos) {
-      req.files.add(await http.MultipartFile.fromPath('photos', file.path));
+      if (kIsWeb) {
+        req.files.add(http.MultipartFile.fromBytes(
+          'photos',
+          await file.readAsBytes(),
+          filename: file.name,
+        ));
+      } else {
+        req.files
+            .add(await http.MultipartFile.fromPath('photos', file.path));
+      }
     }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
     if (res.statusCode >= 400) throw ApiException(res.statusCode, res.body);
     return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  // ── YouTube search ─────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> searchYouTube(String query) async {
+    try {
+      return await _req(
+          'GET', '/api/youtube/search?q=${Uri.encodeComponent(query)}');
+    } on ApiException catch (e) {
+      if (e.status == 404) return const [];
+      rethrow;
+    }
   }
 
   // ── Invitations (phone-number matching) ───────────────────────────────────
@@ -294,10 +369,18 @@ class ApiService {
 
   // ── Upload image ───────────────────────────────────────────────────────────
 
-  static Future<String> uploadImage(File file) async {
+  static Future<String> uploadImage(XFile file) async {
     final uri = Uri.parse('$_base/api/chat/upload');
     final req = http.MultipartRequest('POST', uri);
-    req.files.add(await http.MultipartFile.fromPath('image', file.path));
+    if (kIsWeb) {
+      req.files.add(http.MultipartFile.fromBytes(
+        'image',
+        await file.readAsBytes(),
+        filename: file.name,
+      ));
+    } else {
+      req.files.add(await http.MultipartFile.fromPath('image', file.path));
+    }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
     if (res.statusCode >= 400) throw ApiException(res.statusCode, res.body);

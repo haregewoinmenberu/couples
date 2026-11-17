@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
@@ -31,7 +32,7 @@ class MemoryDetailScreen extends ConsumerWidget {
             expandedHeight: 260,
             pinned: true,
             leading: GestureDetector(
-              onTap: () => context.pop(),
+              onTap: () => context.safePop(),
               child: const Icon(Icons.arrow_back_ios_new_rounded),
             ),
             actions: [
@@ -50,7 +51,7 @@ class MemoryDetailScreen extends ConsumerWidget {
                 onSelected: (v) {
                   if (v == 'delete') {
                     ref.read(memoriesProvider.notifier).remove(memory.id);
-                    context.pop();
+                    context.safePop();
                   } else if (v == 'edit') {
                     context.push('/memories/add');
                   }

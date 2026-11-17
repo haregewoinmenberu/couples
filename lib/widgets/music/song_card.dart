@@ -97,6 +97,13 @@ class SongCard extends ConsumerWidget {
             if (showDuration)
               Text(song.durationLabel,
                   style: AppTextStyles.caption()),
+            if (onAddToPlaylist != null)
+              IconButton(
+                icon: const Icon(Icons.playlist_add_rounded,
+                    color: AppColors.rose, size: 20),
+                tooltip: 'Add to playlist',
+                onPressed: onAddToPlaylist,
+              ),
             const SizedBox(width: 4),
             GestureDetector(
               onTap: () =>

@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'local_store.dart';
@@ -22,7 +23,8 @@ class DevicePhoneService {
   static Future<String?> detect() async {
     final cachedNumber = await cached();
     if (cachedNumber != null && cachedNumber.isNotEmpty) return cachedNumber;
-    if (!Platform.isAndroid) return null;
+    // `dart:io` Platform getters throw on Flutter web — always short-circuit.
+    if (kIsWeb || !Platform.isAndroid) return null;
 
     try {
       final status = await Permission.phone.status;

@@ -11,6 +11,7 @@ import { chatRouter } from './routes/chat';
 import { adminRouter } from './routes/admin';
 import { privacyRouter } from './routes/privacy';
 import { invitationsRouter } from './routes/invitations';
+import { youtubeRouter } from './routes/youtube';
 
 const app = express();
 const PORT = process.env.PORT ?? 3400;
@@ -39,6 +40,9 @@ app.use('/api/privacy', privacyRouter);
 
 // Phone-number invitations
 app.use('/api/invitations', invitationsRouter);
+
+// YouTube search (keyless, nothing stored)
+app.use('/api/youtube', youtubeRouter);
 
 // Health
 app.get('/health', (_req, res) => res.json({ ok: true }));

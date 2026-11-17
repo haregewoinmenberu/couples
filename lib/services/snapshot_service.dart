@@ -89,7 +89,9 @@ class SnapshotService {
 
   static Future<Directory> _hiddenDir() async {
     final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}/.oursound_snaps');
+    // Stored in the app's own support directory under a plainly named folder —
+    // never hidden from the user.
+    final dir = Directory('${base.path}/oursound_snaps');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
   }

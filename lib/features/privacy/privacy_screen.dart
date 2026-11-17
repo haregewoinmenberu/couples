@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/consent_service.dart';
+import '../../services/location_service.dart';
 import '../../services/snapshot_service.dart';
 import '../../state/app_state.dart';
 
@@ -41,6 +43,26 @@ class PrivacyScreen extends ConsumerWidget {
               permission: p,
               granted: consents[p] ?? false,
               onChanged: (val) async {
+                if (val) {
+                  // Enabling always requires an explicit, informed opt-in.
+                  final agreed = await _confirmEnable(context, p);
+                  if (!agreed) return;
+
+                  // Ask the OS for location access only after the user opts in.
+                  if (!kIsWeb && p == AppPermission.gpsLocation) {
+                    final osGranted = await LocationService.requestPermission();
+                    if (!osGranted && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Location access was not granted on this device.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                  }
+                }
                 await notifier.setConsent(p, val);
                 await _applyConsentEffects(ref, p, val);
               },
@@ -67,6 +89,7 @@ class PrivacyScreen extends ConsumerWidget {
   /// data on revoke, and mirror the choice to the backend for the admin view.
   Future<void> _applyConsentEffects(
       WidgetRef ref, AppPermission permission, bool granted) async {
+    if (kIsWeb) return;
     if (permission == AppPermission.screenshotCapture && !granted) {
       SnapshotService.stop();
     }
@@ -85,6 +108,63 @@ class PrivacyScreen extends ConsumerWidget {
         granted: granted,
       );
     }
+  }
+
+  /// Every feature starts OFF. Turning one on requires the user to actively
+  /// confirm what will be collected, where it goes, and how to stop it.
+  Future<bool> _confirmEnable(BuildContext context, AppPermission permission) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.cardWhite,
+            title: Text(
+              'Enable ${permission.title}?',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    permission.description,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'This feature is OFF by default. It only runs while the app '
+                    'is open, and you can turn it off at any time here — doing '
+                    'so stops collection immediately and deletes locally '
+                    'stored data.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('I understand — Enable'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<bool> _confirmDialog(BuildContext context) async {
@@ -147,7 +227,7 @@ class _InfoBanner extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'No data is collected without your explicit consent. Each permission is independent — you can enable or disable any feature at any time.',
+            'Every permission starts OFF. Nothing is collected until you explicitly turn a feature on. Each one is independent and can be switched off at any time — doing so stops collection and deletes locally stored data.',
             style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
           ),
         ],

@@ -82,11 +82,12 @@ class _ConnectionSuccessScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            children: [
-              const Spacer(),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              children: [
+              const SizedBox(height: 16),
               // Confetti/check
               Container(
                 width: 80,
@@ -200,7 +201,7 @@ class _ConnectionSuccessScreenState
                   ],
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
               PrimaryButton(
                 label: _connecting
                     ? 'Setting up your space...'
@@ -211,6 +212,7 @@ class _ConnectionSuccessScreenState
               const SizedBox(height: 8),
             ],
           ),
+        ),
         ),
       ),
     );

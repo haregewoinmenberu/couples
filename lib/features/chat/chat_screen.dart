@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +28,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _focusNode = FocusNode();
   String? _replyToId;
 
+  Future<void> _pickVideo() async {
+    final picker = ImagePicker();
+    final vid = await picker.pickVideo(source: ImageSource.gallery);
+    if (vid == null) return;
+    final session = ref.read(sessionProvider);
+    String? url;
+    try {
+      url = await ApiService.uploadVideo(vid);
+    } catch (_) {}
+    final msg = ChatMessage(
+      id: 'msg_video_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: session.currentUser?.id ?? alexId,
+      type: MessageType.video,
+      text: url ?? vid.path,
+      sentAt: DateTime.now(),
+    );
+    ref.read(chatProvider.notifier).send(msg,
+        coupleId: session.couple?.id, imageUrl: url);
+  }
+
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
     final img = await picker.pickImage(source: ImageSource.gallery);
@@ -39,7 +58,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // generated artwork so the message still appears offline.
     String? imageUrl;
     try {
-      imageUrl = await ApiService.uploadImage(File(img.path));
+      imageUrl = await ApiService.uploadImage(img);
     } catch (_) {}
 
     final msg = ChatMessage(
@@ -215,6 +234,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onSend: _send,
             onAttachMusic: () => context.push('/music'),
             onAttachPhoto: _pickPhoto,
+            onAttachVideo: _pickVideo,
             onVoice: () {
               final session = ref.read(sessionProvider);
               final msg = ChatMessage(
@@ -443,6 +463,44 @@ class _BubbleContent extends ConsumerWidget {
           ],
         );
 
+      case MessageType.video:
+        final url = message.text;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (url != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Video: $url')),
+                  );
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? Colors.white.withOpacity(0.15)
+                      : AppColors.softLavender,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.video_file_rounded, color: textColor, size: 24),
+                    const SizedBox(width: 8),
+                    Text('Video message', style: AppTextStyles.body(color: textColor)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(formatTime(message.sentAt),
+                style: AppTextStyles.small(color: subtextColor)),
+          ],
+        );
+
       case MessageType.photo:
         final url = message.text;
         final isRemote = url != null && url.startsWith('http');
@@ -623,6 +681,7 @@ class _Composer extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onAttachMusic;
   final VoidCallback onAttachPhoto;
+  final VoidCallback onAttachVideo;
   final VoidCallback onVoice;
 
   const _Composer({
@@ -631,6 +690,7 @@ class _Composer extends StatelessWidget {
     required this.onSend,
     required this.onAttachMusic,
     required this.onAttachPhoto,
+    required this.onAttachVideo,
     required this.onVoice,
   });
 
@@ -654,6 +714,11 @@ class _Composer extends StatelessWidget {
             icon: const Icon(Icons.image_outlined,
                 color: AppColors.textSecondary, size: 22),
             onPressed: onAttachPhoto,
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam_outlined,
+                color: AppColors.textSecondary, size: 22),
+            onPressed: onAttachVideo,
           ),
           Expanded(
             child: TextField(

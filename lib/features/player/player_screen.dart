@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -66,16 +68,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return Scaffold(
       backgroundColor: AppColors.darkPlayer,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              children: [
               const SizedBox(height: 16),
               // Header
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () => context.pop(),
+                    onTap: () => context.safePop(),
                     child: Container(
                       width: 36,
                       height: 36,
@@ -114,16 +117,33 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 ],
               ),
-              const Spacer(),
-              // Artwork
-              ArtworkTile(
-                seed: song.artworkSeed,
-                size: 280,
-                borderRadius: 28,
-                icon: Icons.music_note_rounded,
-                iconSize: 80,
-              ),
-              const Spacer(),
+              const SizedBox(height: 20),
+              // Artwork / embedded YouTube video
+              if (song.isYouTube)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: YoutubePlayer(
+                    controller: YoutubePlayerController(
+                      initialVideoId: song.youtubeId!,
+                      flags: const YoutubePlayerFlags(
+                        autoPlay: true,
+                        mute: false,
+                        controlsVisibleAtStart: true,
+                      ),
+                    ),
+                    showVideoProgressIndicator: true,
+                    progressIndicatorColor: AppColors.rose,
+                  ),
+                )
+              else
+                ArtworkTile(
+                  seed: song.artworkSeed,
+                  size: 280,
+                  borderRadius: 28,
+                  icon: Icons.music_note_rounded,
+                  iconSize: 80,
+                ),
+              const SizedBox(height: 20),
               // Song info
               Row(
                 children: [
@@ -322,6 +342,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               const SizedBox(height: 20),
             ],
           ),
+        ),
         ),
       ),
     );

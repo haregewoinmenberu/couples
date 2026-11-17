@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -53,7 +53,7 @@ class _MoodScreenState extends ConsumerState<MoodScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.safePop(),
           child: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
         title: Text('Mood Sharing', style: AppTextStyles.h3()),

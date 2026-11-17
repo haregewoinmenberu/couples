@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/song.dart';
 import '../services/local_store.dart';
@@ -46,30 +47,56 @@ class PlayerState {
 }
 
 class PlayerNotifier extends StateNotifier<PlayerState> {
+  final ap.AudioPlayer _audio = ap.AudioPlayer();
   Timer? _ticker;
+  StreamSubscription<Duration>? _positionSub;
 
-  PlayerNotifier() : super(const PlayerState());
+  PlayerNotifier() : super(const PlayerState()) {
+    // Real playback position from the audio engine keeps the UI in sync.
+    _positionSub = _audio.onPositionChanged.listen((pos) {
+      if (!state.hasTrack) return;
+      state = state.copyWith(position: pos);
+    });
+  }
+
+  Future<void> _startAudio(Song song) async {
+    if (song.isYouTube) return; // playback is handled by the embedded player
+    try {
+      await _audio.setSourceUrl(song.playableUrl);
+      await _audio.resume();
+    } catch (_) {
+      // Browsers can block autoplay without a user gesture; the play button
+      // still works and the simulated position keeps the UI usable.
+    }
+  }
 
   void play(Song song, {List<Song>? queue}) {
+    final changed = state.currentSong?.id != song.id;
     state = state.copyWith(
       currentSong: song,
       isPlaying: true,
       position: Duration.zero,
       queue: queue ?? [song],
     );
-    _startTicker();
+    if (changed || _audio.state != ap.PlayerState.playing) _startAudio(song);
+    if (!song.isYouTube) _startTicker();
   }
 
   void togglePlayPause() {
     state = state.copyWith(isPlaying: !state.isPlaying);
     if (state.isPlaying) {
-      _startTicker();
+      if (state.currentSong != null) _startAudio(state.currentSong!);
+      if (state.currentSong?.isYouTube != true) _startTicker();
     } else {
+      _audio.pause();
       _stopTicker();
     }
   }
 
-  void seek(Duration position) => state = state.copyWith(position: position);
+  void seek(Duration position) {
+    state = state.copyWith(position: position);
+    _audio.seek(position);
+  }
 
   void toggleShuffle() => state = state.copyWith(shuffle: !state.shuffle);
 
@@ -79,6 +106,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       state = state.copyWith(listenTogether: !state.listenTogether);
 
   void stop() {
+    _audio.stop();
     _stopTicker();
     state = const PlayerState();
   }
@@ -86,25 +114,31 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void next() {
     if (state.queue.isEmpty) return;
     final idx = state.queue.indexWhere((s) => s.id == state.currentSong?.id);
-    final nextIdx = (idx + 1) % state.queue.length;
+    final nextIdx =
+        state.shuffle ? (idx + 1 + state.queue.length ~/ 2) % state.queue.length
+                      : (idx + 1) % state.queue.length;
+    final song = state.queue[nextIdx];
     state = state.copyWith(
-      currentSong: state.queue[nextIdx],
+      currentSong: song,
       position: Duration.zero,
       isPlaying: true,
     );
-    _startTicker();
+    _startAudio(song);
+    if (!song.isYouTube) _startTicker();
   }
 
   void previous() {
     if (state.queue.isEmpty) return;
     final idx = state.queue.indexWhere((s) => s.id == state.currentSong?.id);
     final prevIdx = (idx - 1 + state.queue.length) % state.queue.length;
+    final song = state.queue[prevIdx];
     state = state.copyWith(
-      currentSong: state.queue[prevIdx],
+      currentSong: song,
       position: Duration.zero,
       isPlaying: true,
     );
-    _startTicker();
+    _startAudio(song);
+    if (!song.isYouTube) _startTicker();
   }
 
   void _startTicker() {
@@ -116,6 +150,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       if (newPos >= duration) {
         if (state.repeat) {
           state = state.copyWith(position: Duration.zero);
+          _audio.seek(Duration.zero);
         } else {
           next();
         }
@@ -133,6 +168,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   @override
   void dispose() {
     _stopTicker();
+    _positionSub?.cancel();
+    _audio.dispose();
     super.dispose();
   }
 }

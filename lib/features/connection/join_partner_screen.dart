@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -107,7 +108,7 @@ class _JoinPartnerScreenState extends ConsumerState<JoinPartnerScreen> {
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () => context.pop(),
+                    onTap: () => context.safePop(),
                     child: const Icon(Icons.arrow_back_ios_new_rounded,
                         size: 20),
                   ),

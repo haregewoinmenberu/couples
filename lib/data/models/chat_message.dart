@@ -1,9 +1,10 @@
-enum MessageType { text, song, photo, voice, dedication, playlist, memory, dailyQuestion }
+enum MessageType { text, song, photo, video, voice, dedication, playlist, memory, dailyQuestion }
 
 extension MessageTypeX on MessageType {
   static MessageType fromString(String s) => switch (s) {
         'song' => MessageType.song,
         'photo' || 'image' => MessageType.photo,
+        'video' => MessageType.video,
         'voice' => MessageType.voice,
         'dedication' => MessageType.dedication,
         'playlist' => MessageType.playlist,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
@@ -83,7 +84,7 @@ class AlreadyConnectedScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               SecondaryButton(
                 label: 'Go Back',
-                onTap: () => context.pop(),
+                onTap: () => context.safePop(),
               ),
               const SizedBox(height: 8),
             ],

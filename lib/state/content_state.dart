@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../data/models/chat_message.dart';
 import '../data/models/playlist.dart';
 import '../data/models/memory.dart';
@@ -17,6 +17,7 @@ import '../data/mock/mock_challenges.dart';
 import '../data/mock/mock_notifications.dart';
 import '../data/mock/mock_people.dart';
 import '../data/mock/mock_songs.dart';
+import '../core/utils/mood_matching.dart';
 import '../services/api_service.dart';
 import '../services/local_store.dart';
 
@@ -30,12 +31,46 @@ class SongsNotifier extends StateNotifier<AsyncValue<List<Song>>> {
   Future<void> load({String? search, String? mood, String? genre}) async {
     state = const AsyncValue.loading();
     try {
-      final raw = await ApiService.getSongs();
-      final songs = raw.map((j) => Song.fromJson(j as Map<String, dynamic>)).toList();
-      state = AsyncValue.data(songs.isEmpty ? mockSongs : songs);
+      final raw = await ApiService.getSongs(
+        search: search,
+        mood: mood,
+        genre: genre,
+      );
+      final songs =
+          raw.map((j) => Song.fromJson(j as Map<String, dynamic>)).toList();
+      state = AsyncValue.data(songs.isNotEmpty ? songs : _localFallback(search, mood, genre));
     } catch (_) {
-      state = AsyncValue.data(mockSongs);
+      state = AsyncValue.data(_localFallback(search, mood, genre));
     }
+  }
+
+  void add(Song song) {
+    final current = state.valueOrNull ?? const <Song>[];
+    if (current.any((s) => s.id == song.id)) return;
+    state = AsyncValue.data([song, ...current]);
+  }
+
+  List<Song> _localFallback(String? search, String? mood, String? genre) {
+    var songs = List<Song>.from(mockSongs);
+    if (mood != null && mood.isNotEmpty) {
+      songs = songs.where((s) => songMatchesMood(s, mood)).toList();
+    }
+    if (genre != null && genre.isNotEmpty) {
+      songs = songs
+          .where((s) => s.genres
+              .any((g) => g.toLowerCase() == genre.toLowerCase()))
+          .toList();
+    }
+    if (search != null && search.isNotEmpty) {
+      final q = search.toLowerCase();
+      songs = songs
+          .where((s) =>
+              s.title.toLowerCase().contains(q) ||
+              s.artist.toLowerCase().contains(q) ||
+              s.album.toLowerCase().contains(q))
+          .toList();
+    }
+    return songs;
   }
 }
 
@@ -252,7 +287,7 @@ class MemoriesNotifier extends StateNotifier<List<Memory>> {
     required String userId,
     String? coupleId,
     String? location,
-    List<File> photos = const [],
+    List<XFile> photos = const [],
   }) async {
     try {
       final data = photos.isEmpty

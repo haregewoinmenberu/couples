@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -24,7 +23,7 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
   final _locationCtrl = TextEditingController();
   DateTime _date = DateTime.now();
   final List<int> _photoSeeds = [];
-  final List<String> _photoPaths = [];
+  final List<XFile> _photos = [];
   bool _loading = false;
   final _picker = ImagePicker();
 
@@ -33,9 +32,18 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
     if (imgs.isEmpty) return;
     setState(() {
       for (final img in imgs) {
-        _photoPaths.add(img.path);
+        _photos.add(img);
         _photoSeeds.add(DateTime.now().millisecondsSinceEpoch % 8);
       }
+    });
+  }
+
+  Future<void> _pickVideo() async {
+    final vid = await _picker.pickVideo(source: ImageSource.gallery);
+    if (vid == null) return;
+    setState(() {
+      _photos.add(vid);
+      _photoSeeds.add(DateTime.now().millisecondsSinceEpoch % 8);
     });
   }
 
@@ -58,11 +66,11 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
       userId: session.currentUser?.id ?? '',
       coupleId: session.couple?.id,
       location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
-      photos: _photoPaths.map(File.new).toList(),
+      photos: _photos,
     );
     if (!mounted) return;
     setState(() => _loading = false);
-    context.pop();
+    context.safePop();
   }
 
   @override
@@ -71,7 +79,7 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => context.pop(),
+          onTap: () => context.safePop(),
           child:
               const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
@@ -130,6 +138,20 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
                             style: BorderStyle.solid),
                       ),
                       child: const Icon(Icons.add_photo_alternate_rounded,
+                          color: AppColors.textSecondary, size: 28),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _pickVideo,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundSecondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Icon(Icons.video_call_outlined,
                           color: AppColors.textSecondary, size: 28),
                     ),
                   ),

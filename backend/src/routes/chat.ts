@@ -20,6 +20,12 @@ chatRouter.post('/upload', upload.single('image'), (req, res) => {
   res.json({ url: `/uploads/chat/${req.file.filename}` });
 });
 
+// Video attachments. Multer accepts any MIME type; the field name distinguishes it.
+chatRouter.post('/upload-video', upload.single('video'), (req, res) => {
+  if (!req.file) { res.status(400).json({ error: 'No file' }); return; }
+  res.json({ url: `/uploads/chat/${req.file.filename}` });
+});
+
 chatRouter.get('/:coupleId', async (req, res) => {
   const { cursor, limit = '50' } = req.query;
   const messages = await prisma.chatMessage.findMany({

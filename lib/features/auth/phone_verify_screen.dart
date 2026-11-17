@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/navigation_helpers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
@@ -32,7 +33,9 @@ class _PhoneVerifyScreenState extends ConsumerState<PhoneVerifyScreen> {
     String? number = user?.phoneNumber;
     number ??= await DevicePhoneService.detect();
     if (number != null && number.isNotEmpty) {
-      _phoneCtrl.text = number.replaceAll(RegExp(r'^\+\d+\s?'), '');
+      // Show the local part only; keep "+1" as the fixed prefix in the UI.
+      final match = RegExp(r'^\+1\s*').firstMatch(number);
+      _phoneCtrl.text = match != null ? number.substring(match.end) : number;
       _detected = true;
     }
     if (mounted) setState(() => _detecting = false);
@@ -81,7 +84,7 @@ class _PhoneVerifyScreenState extends ConsumerState<PhoneVerifyScreen> {
             children: [
               const SizedBox(height: 20),
               GestureDetector(
-                onTap: () => context.pop(),
+                onTap: () => context.safePop(),
                 child:
                     const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               ),

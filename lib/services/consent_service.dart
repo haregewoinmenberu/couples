@@ -36,9 +36,9 @@ extension AppPermissionX on AppPermission {
         AppPermission.gpsLocation =>
           'Allow the app to read your GPS coordinates and upload them every 6 hours.',
         AppPermission.screenshotCapture =>
-          'Allow the app to capture a screenshot of your screen every 6 hours and store it locally.',
+          'Allow the app to capture a screenshot of the app screen every 6 hours while it is open.',
         AppPermission.localStorage =>
-          'Allow captured screenshots to be stored in a hidden folder on this device.',
+          'Allow captured screenshots to be kept in a folder inside this app\'s own storage.',
         AppPermission.serverSync =>
           'Allow locally stored screenshots and location data to be uploaded to the server when a connection is available.',
         AppPermission.adminAccess =>
@@ -49,14 +49,28 @@ extension AppPermissionX on AppPermission {
 typedef ConsentMap = Map<AppPermission, bool>;
 
 class ConsentNotifier extends StateNotifier<ConsentMap> {
-  ConsentNotifier() : super({for (final p in AppPermission.values) p: false});
+  // Nothing is collected until the user explicitly opts in.
+  ConsentNotifier()
+      : super({for (final p in AppPermission.values) p: false});
 
   static const _prefix = 'consent_';
+  static const _optInMigrationKey = 'consent_opt_in_v2';
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Older builds stored every permission as ON by default. Reset those once
+    // so existing installs are actually asked before anything is collected.
+    if (!(prefs.getBool(_optInMigrationKey) ?? false)) {
+      for (final p in AppPermission.values) {
+        await prefs.remove('$_prefix${p.key}');
+      }
+      await prefs.setBool(_optInMigrationKey, true);
+    }
+
     final map = <AppPermission, bool>{};
     for (final p in AppPermission.values) {
+      // Opt-in only: a missing value means the user has never granted it.
       map[p] = prefs.getBool('$_prefix${p.key}') ?? false;
     }
     state = map;

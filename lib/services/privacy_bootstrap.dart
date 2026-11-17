@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/app_state.dart';
@@ -37,6 +38,9 @@ class _PrivacyBootstrapState extends ConsumerState<PrivacyBootstrap>
   }
 
   void _sync({bool force = false}) {
+    // The snapshot collector relies on native path/permission plugins that do
+    // not exist on web; the consent UI still works, collection is a no-op.
+    if (kIsWeb) return;
     final consents = ref.read(consentProvider);
     final user = ref.read(sessionProvider).currentUser;
 

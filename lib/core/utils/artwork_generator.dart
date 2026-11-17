@@ -31,17 +31,24 @@ class ArtworkTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
+    final tile = Container(
       decoration: BoxDecoration(
         gradient: artworkGradient(seed),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: icon != null
-          ? Icon(icon, color: Colors.white.withOpacity(0.85), size: iconSize)
+          ? Center(
+              child: Icon(icon,
+                  color: Colors.white.withOpacity(0.85), size: iconSize))
           : null,
     );
+    // `size: double.infinity` is used for full-width artwork. A plain
+    // Container with infinite height crashes inside Columns/CustomScrollView,
+    // so derive a bounded square from the available width instead.
+    if (size.isInfinite) {
+      return AspectRatio(aspectRatio: 1, child: tile);
+    }
+    return SizedBox(width: size, height: size, child: tile);
   }
 }
 

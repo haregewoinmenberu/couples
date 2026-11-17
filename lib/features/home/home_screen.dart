@@ -6,7 +6,6 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
 import '../../data/mock/mock_people.dart';
-import '../../data/mock/mock_playlists.dart';
 import '../../data/mock/mock_songs.dart';
 import '../../data/models/song.dart';
 import '../../state/app_state.dart';
@@ -23,6 +22,7 @@ class HomeScreen extends ConsumerWidget {
     final notifications = ref.watch(notificationsProvider);
     final questions = ref.watch(questionsProvider);
     final songsAsync = ref.watch(songsProvider);
+    final playlists = ref.watch(playlistsProvider);
     final unread = notifications.where((n) => !n.isRead).length;
 
     final user = session.currentUser ?? mockAlex;
@@ -172,10 +172,10 @@ class HomeScreen extends ConsumerWidget {
                   height: 130,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: mockPlaylists.length.clamp(0, 5),
+                    itemCount: playlists.length.clamp(0, 5),
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (_, i) {
-                      final pl = mockPlaylists[i];
+                      final pl = playlists[i];
                       return GestureDetector(
                         onTap: () => context.push('/playlists/${pl.id}'),
                         child: SizedBox(
