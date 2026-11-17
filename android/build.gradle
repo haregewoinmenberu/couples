@@ -13,6 +13,33 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// AGP 8 requires an explicit namespace on every Android library module. Older
+// plugins (e.g. flutter_inappwebview 5.x) only declare a manifest package.
+// Hook into plugin application so it is set before variants are created —
+// `afterEvaluate` is too late and fails on already-evaluated projects.
+allprojects {
+    plugins.withId('com.android.library') {
+        def androidExt = project.extensions.findByName('android')
+        if (androidExt != null && androidExt.namespace == null) {
+            androidExt.namespace = "com.oursound.${project.name.replaceAll(/[^A-Za-z0-9]/, '')}"
+        }
+    }
+}
+
+// Some plugin modules (e.g. geolocator_android 4.6.x) still reference
+// `flutter.compileSdkVersion` / `flutter.minSdkVersion`. Under the current
+// Flutter Gradle setup that extension is only added to the app module, so
+// provide a compatible shim for library modules that expect it.
+subprojects {
+    if (project.extensions.findByName('flutter') == null) {
+        project.extensions.add('flutter', [
+            compileSdkVersion: 35,
+            minSdkVersion    : 21,
+            targetSdkVersion : 35,
+        ])
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
