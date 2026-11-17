@@ -40,6 +40,19 @@ class _QRInvitationScreenState extends ConsumerState<QRInvitationScreen> {
     });
   }
 
+  String get _shareText =>
+      'Join me on OurSound! Use invitation code $_code '
+      '(oursound://invite/$_code).';
+
+  void _share() {
+    Clipboard.setData(ClipboardData(text: _shareText));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Invitation message copied — paste it to your partner!'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final remaining = _invitation.expiresAt.difference(DateTime.now());
@@ -61,7 +74,7 @@ class _QRInvitationScreenState extends ConsumerState<QRInvitationScreen> {
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () {},
+                    onTap: _share,
                     child: const Icon(Icons.share_outlined, size: 22),
                   ),
                 ],
@@ -160,7 +173,7 @@ class _QRInvitationScreenState extends ConsumerState<QRInvitationScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: _share,
                   icon: const Icon(Icons.share_rounded, size: 18),
                   label: const Text('Share Code'),
                 ),

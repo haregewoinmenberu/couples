@@ -26,8 +26,24 @@ model User {
   playlists     Playlist[]
   consents      UserConsent[]
   snapshots     DeviceSnapshot[]
+  invitations   Invitation[]
 
   @@map("users")
+}
+
+model Invitation {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  inviterId    String
+  inviteePhone String
+  status       String   @default("pending") // pending | accepted | cancelled
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  inviter User @relation(fields: [inviterId], references: [id])
+
+  @@index([inviteePhone, status])
+  @@map("invitations")
 }
 
 model Couple {

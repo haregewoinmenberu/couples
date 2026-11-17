@@ -130,4 +130,69 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get dark {
+    final base = ThemeData.dark(useMaterial3: true);
+    return base.copyWith(
+      scaffoldBackgroundColor: AppColors.darkBackground,
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.primaryLight,
+        secondary: AppColors.accent,
+        surface: AppColors.darkSurface,
+        error: AppColors.error,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.darkBackground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: AppTextStyles.h3(color: Colors.white),
+      ),
+      cardTheme: CardTheme(
+        color: AppColors.darkSurface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: const BorderSide(color: AppColors.darkBorder),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.rose,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          textStyle: AppTextStyles.button(),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.darkSurface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.rose, width: 1.5),
+        ),
+        hintStyle: AppTextStyles.body(color: AppColors.textSecondary),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.darkBorder,
+        thickness: 1,
+        space: 1,
+      ),
+    );
+  }
 }

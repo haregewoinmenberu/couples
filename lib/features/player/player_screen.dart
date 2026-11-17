@@ -7,6 +7,11 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
 import '../../core/utils/date_helpers.dart';
 import '../../data/mock/mock_songs.dart';
+import '../../data/models/chat_message.dart';
+import '../../data/models/playlist.dart';
+import '../../state/app_state.dart';
+import '../../state/content_state.dart'
+    show songsProvider, chatProvider, playlistsProvider;
 import '../../state/music_state.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -19,16 +24,31 @@ class PlayerScreen extends ConsumerStatefulWidget {
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   late String _currentSongId;
+  final _conversationCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _currentSongId = widget.songId;
-    final song = mockSongs.firstWhere((s) => s.id == _currentSongId,
-        orElse: () => mockSongs[0]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(playerProvider.notifier).play(song, queue: mockSongs);
+      final all = ref.read(songsProvider).valueOrNull ?? mockSongs;
+      final queue = all.isNotEmpty ? all : mockSongs;
+      final song = queue.firstWhere((s) => s.id == _currentSongId,
+          orElse: () => queue.first);
+      // Keep an existing queue if this song is already loaded, so switching
+      // songs from a playlist doesn't reset playback order.
+      final current = ref.read(playerProvider);
+      if (current.currentSong?.id == song.id && current.queue.isNotEmpty) {
+        return;
+      }
+      ref.read(playerProvider.notifier).play(song, queue: queue.cast());
     });
+  }
+
+  @override
+  void dispose() {
+    _conversationCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -326,7 +346,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   style: AppTextStyles.body(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/playlists');
+                _showAddToPlaylist(context);
               },
             ),
             ListTile(
@@ -343,8 +363,112 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   color: Colors.white),
               title: Text('View Queue',
                   style: AppTextStyles.body(color: Colors.white)),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                _showQueue(context);
+              },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddToPlaylist(BuildContext context) {
+    final song = ref.read(playerProvider).currentSong;
+    if (song == null) return;
+    final session = ref.read(sessionProvider);
+    final playlists = ref.read(playlistsProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.darkPlayerSecondary,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Add "${song.title}" to...',
+                style: AppTextStyles.h3(color: Colors.white)),
+            const SizedBox(height: 12),
+            if (playlists.isEmpty)
+              Text('No playlists yet. Create one from the Playlists tab.',
+                  style: AppTextStyles.body(color: Colors.white54))
+            else
+              ...playlists.map((pl) => ListTile(
+                    leading: const Icon(Icons.playlist_play_rounded,
+                        color: Colors.white),
+                    title: Text(pl.title,
+                        style: AppTextStyles.body(color: Colors.white)),
+                    subtitle: Text('${pl.songs.length} songs',
+                        style: AppTextStyles.caption(color: Colors.white54)),
+                    onTap: () {
+                      if (pl.songs.any((e) => e.songId == song.id)) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Already in playlist')),
+                        );
+                        return;
+                      }
+                      ref.read(playlistsProvider.notifier).addSong(
+                            pl.id,
+                            PlaylistSongEntry(
+                              songId: song.id,
+                              addedByUserId: session.currentUser?.id ?? '',
+                              addedAt: DateTime.now(),
+                            ),
+                          );
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Added to ${pl.title}')),
+                      );
+                    },
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQueue(BuildContext context) {
+    final queue = ref.read(playerProvider).queue;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.darkPlayerSecondary,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Up Next', style: AppTextStyles.h3(color: Colors.white)),
+            const SizedBox(height: 12),
+            if (queue.isEmpty)
+              Text('The queue is empty.',
+                  style: AppTextStyles.body(color: Colors.white54))
+            else
+              ...queue.asMap().entries.map((e) {
+                final s = e.value;
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.primary,
+                    child: Text('${e.key + 1}',
+                        style: const TextStyle(color: Colors.white)),
+                  ),
+                  title: Text(s.title,
+                      style: AppTextStyles.body(color: Colors.white)),
+                  subtitle: Text(s.artist,
+                      style: AppTextStyles.caption(color: Colors.white54)),
+                  onTap: () {
+                    ref.read(playerProvider.notifier).play(s, queue: queue);
+                    Navigator.pop(context);
+                  },
+                );
+              }),
           ],
         ),
       ),
@@ -355,6 +479,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final player = ref.read(playerProvider);
     final song = player.currentSong;
     if (song == null) return;
+    _conversationCtrl.clear();
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.darkPlayer,
@@ -396,6 +521,53 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _conversationCtrl,
+                      style: AppTextStyles.body(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Say something about this song...',
+                        hintStyle:
+                            AppTextStyles.body(color: Colors.white38),
+                        filled: true,
+                        fillColor: AppColors.darkPlayerSecondary,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.send_rounded, color: Colors.white),
+                    onPressed: () {
+                      final text = _conversationCtrl.text.trim();
+                      if (text.isEmpty) return;
+                      final session = ref.read(sessionProvider);
+                      ref.read(chatProvider.notifier).send(
+                            ChatMessage(
+                              id: 'msg_song_${DateTime.now().millisecondsSinceEpoch}',
+                              senderId: session.currentUser?.id ?? '',
+                              type: MessageType.song,
+                              songId: song.id,
+                              text: text,
+                              sentAt: DateTime.now(),
+                            ),
+                            coupleId: session.couple?.id,
+                          );
+                      _conversationCtrl.clear();
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Sent to your partner')),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

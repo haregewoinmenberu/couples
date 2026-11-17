@@ -8,6 +8,7 @@ import '../../core/utils/artwork_generator.dart';
 import '../../data/mock/mock_people.dart';
 import '../../data/mock/mock_playlists.dart';
 import '../../data/mock/mock_songs.dart';
+import '../../data/models/song.dart';
 import '../../state/app_state.dart';
 import '../../state/music_state.dart';
 import '../../state/content_state.dart';
@@ -20,11 +21,16 @@ class HomeScreen extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final player = ref.watch(playerProvider);
     final notifications = ref.watch(notificationsProvider);
+    final questions = ref.watch(questionsProvider);
+    final songsAsync = ref.watch(songsProvider);
     final unread = notifications.where((n) => !n.isRead).length;
 
     final user = session.currentUser ?? mockAlex;
     final partner = session.partner ?? mockSophia;
     final couple = session.couple ?? mockCouple;
+    final allSongs = songsAsync.valueOrNull ?? mockSongs;
+    final dailySong = allSongs.isNotEmpty ? allSongs.first : mockSongs.first;
+    final todayQuestion = questions.isNotEmpty ? questions.first : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -153,7 +159,7 @@ class HomeScreen extends ConsumerWidget {
                     action: 'See all',
                     onAction: () => context.push('/music')),
                 const SizedBox(height: 10),
-                _DailySongCard(song: mockSongs[0], ref: ref),
+                _DailySongCard(song: dailySong, ref: ref, queue: allSongs),
                 const SizedBox(height: 24),
 
                 // Shared playlists
@@ -219,7 +225,9 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // Daily question
-                _DailyQuestionCard(),
+                _DailyQuestionCard(
+                    prompt: todayQuestion?.prompt ??
+                        'What song reminds you of our first meeting?'),
                 const SizedBox(height: 24),
 
                 // Recent activity
@@ -399,14 +407,16 @@ class _AvatarCircle extends StatelessWidget {
 class _DailySongCard extends StatelessWidget {
   final dynamic song;
   final WidgetRef ref;
+  final List<Song> queue;
 
-  const _DailySongCard({required this.song, required this.ref});
+  const _DailySongCard(
+      {required this.song, required this.ref, required this.queue});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        ref.read(playerProvider.notifier).play(song, queue: mockSongs);
+        ref.read(playerProvider.notifier).play(song, queue: queue);
         context.push('/player', extra: song.id);
       },
       child: Container(
@@ -669,6 +679,9 @@ class _ActivityItem extends StatelessWidget {
 }
 
 class _DailyQuestionCard extends StatelessWidget {
+  final String prompt;
+  const _DailyQuestionCard({required this.prompt});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -691,10 +704,7 @@ class _DailyQuestionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            '"What song reminds you of our first meeting?"',
-            style: AppTextStyles.bodyMedium(),
-          ),
+          Text('"$prompt"', style: AppTextStyles.bodyMedium()),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: () => context.push('/questions'),

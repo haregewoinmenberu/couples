@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
 import '../../core/utils/date_helpers.dart';
-import '../../data/mock/mock_songs.dart';
+import '../../data/models/song.dart';
+import '../../data/models/playlist.dart';
 import '../../state/music_state.dart';
 import '../../state/content_state.dart';
 
@@ -36,8 +38,10 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
   Widget build(BuildContext context) {
     final favoriteIds = ref.watch(favoritesProvider);
     final playlists = ref.watch(playlistsProvider);
+    final songsAsync = ref.watch(songsProvider);
+    final List<Song> allSongs = songsAsync.valueOrNull ?? const [];
     final favoriteSongs =
-        mockSongs.where((s) => favoriteIds.contains(s.id)).toList();
+        allSongs.where((s) => favoriteIds.contains(s.id)).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -66,7 +70,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 }
 
 class _SongsTab extends ConsumerWidget {
-  final List songs;
+  final List<Song> songs;
   const _SongsTab({required this.songs});
 
   @override
@@ -97,7 +101,10 @@ class _SongsTab extends ConsumerWidget {
       itemBuilder: (_, i) {
         final song = songs[i];
         return GestureDetector(
-          onTap: () => ref.read(playerProvider.notifier).play(song),
+          onTap: () {
+            ref.read(playerProvider.notifier).play(song, queue: songs.cast());
+            context.push('/player', extra: song.id);
+          },
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -119,8 +126,7 @@ class _SongsTab extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(song.title, style: AppTextStyles.bodyMedium()),
-                      Text(song.artist,
-                          style: AppTextStyles.caption()),
+                      Text(song.artist, style: AppTextStyles.caption()),
                       Text(formatDuration(song.duration),
                           style: AppTextStyles.small()),
                     ],
@@ -142,7 +148,7 @@ class _SongsTab extends ConsumerWidget {
 }
 
 class _PlaylistsTab extends StatelessWidget {
-  final List playlists;
+  final List<Playlist> playlists;
   const _PlaylistsTab({required this.playlists});
 
   @override
@@ -169,9 +175,7 @@ class _PlaylistsTab extends StatelessWidget {
       itemBuilder: (_, i) {
         final playlist = playlists[i];
         return GestureDetector(
-          onTap: () => Navigator.of(context).pushNamed(
-            '/playlists/${playlist.id}',
-          ),
+          onTap: () => context.push('/playlists/${playlist.id}'),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -182,7 +186,7 @@ class _PlaylistsTab extends StatelessWidget {
             child: Row(
               children: [
                 ArtworkTile(
-                  seed: playlist.coverArtSeed,
+                  seed: playlist.coverSeed,
                   size: 52,
                   borderRadius: 10,
                   icon: Icons.playlist_play_rounded,
@@ -192,9 +196,8 @@ class _PlaylistsTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(playlist.name,
-                          style: AppTextStyles.bodyMedium()),
-                      Text('${playlist.songIds.length} songs',
+                      Text(playlist.title, style: AppTextStyles.bodyMedium()),
+                      Text('${playlist.songs.length} songs',
                           style: AppTextStyles.caption()),
                     ],
                   ),

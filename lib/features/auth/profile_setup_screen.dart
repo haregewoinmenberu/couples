@@ -1,20 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/artwork_generator.dart';
+import '../../state/app_state.dart';
 import '../../widgets/common/primary_button.dart';
 
-class ProfileSetupScreen extends StatefulWidget {
+class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
 
   @override
-  State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
+  ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _usernameCtrl = TextEditingController();
   bool _loading = false;
+  String? _error;
+  String? _avatarSeed;
+
+  Future<void> _pickAvatar() async {
+    final img = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (img == null || !mounted) return;
+    setState(() => _avatarSeed = img.name.hashCode.toString());
+  }
+
+  void _continue() async {
+    final username = _usernameCtrl.text.trim().replaceAll('@', '');
+    if (username.isEmpty) {
+      setState(() => _error = 'Please choose a username.');
+      return;
+    }
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
+    final user = ref.read(sessionProvider).currentUser;
+    if (user != null) {
+      ref.read(sessionProvider.notifier).updateProfile(
+            user.copyWith(
+              username: username,
+              avatarSeed: _avatarSeed ?? user.avatarSeed,
+            ),
+          );
+    }
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (mounted) context.go('/auth/phone-verify');
+  }
 
   @override
   void dispose() {
@@ -48,17 +85,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               Center(
                 child: Stack(
                   children: [
-                    AvatarTile(seed: 'profile', size: 90),
+                    AvatarTile(seed: _avatarSeed ?? 'profile', size: 90),
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                            color: AppColors.rose, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt_rounded,
-                            color: Colors.white, size: 15),
+                      child: GestureDetector(
+                        onTap: _pickAvatar,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(
+                              color: AppColors.rose, shape: BoxShape.circle),
+                          child: const Icon(Icons.camera_alt_rounded,
+                              color: Colors.white, size: 15),
+                        ),
                       ),
                     ),
                   ],
@@ -74,15 +114,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   prefixText: '@',
                 ),
               ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(_error!,
+                    style: AppTextStyles.caption(color: AppColors.error)),
+              ],
               const SizedBox(height: 40),
               PrimaryButton(
                 label: 'Continue',
                 loading: _loading,
-                onTap: () async {
-                  setState(() => _loading = true);
-                  await Future.delayed(const Duration(milliseconds: 800));
-                  if (mounted) context.go('/auth/phone-verify');
-                },
+                onTap: _continue,
               ),
             ],
           ),

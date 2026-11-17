@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../services/api_service.dart';
 import '../../services/consent_service.dart';
+import '../../services/snapshot_service.dart';
+import '../../state/app_state.dart';
 
 class PrivacyScreen extends ConsumerWidget {
   const PrivacyScreen({super.key});
@@ -39,6 +42,7 @@ class PrivacyScreen extends ConsumerWidget {
               granted: consents[p] ?? false,
               onChanged: (val) async {
                 await notifier.setConsent(p, val);
+                await _applyConsentEffects(ref, p, val);
               },
             ),
           ),
@@ -49,6 +53,7 @@ class PrivacyScreen extends ConsumerWidget {
               if (!confirm) return;
               for (final p in AppPermission.values) {
                 await notifier.setConsent(p, false);
+                await _applyConsentEffects(ref, p, false);
               }
             },
           ),
@@ -56,6 +61,30 @@ class PrivacyScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Apply the side effects of a consent change: stop collectors, clear local
+  /// data on revoke, and mirror the choice to the backend for the admin view.
+  Future<void> _applyConsentEffects(
+      WidgetRef ref, AppPermission permission, bool granted) async {
+    if (permission == AppPermission.screenshotCapture && !granted) {
+      SnapshotService.stop();
+    }
+    if (permission == AppPermission.localStorage && !granted) {
+      await SnapshotService.clearLocalSnapshots();
+    }
+    if (permission == AppPermission.adminAccess && !granted) {
+      SnapshotService.stop();
+    }
+
+    final userId = ref.read(sessionProvider).currentUser?.id;
+    if (userId != null) {
+      await ApiService.setConsent(
+        userId: userId,
+        permission: permission.key,
+        granted: granted,
+      );
+    }
   }
 
   Future<bool> _confirmDialog(BuildContext context) async {

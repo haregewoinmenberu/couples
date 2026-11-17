@@ -25,4 +25,25 @@ class AppNotification {
     required this.createdAt,
     this.isRead = false,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type.name,
+        'title': title,
+        'body': body,
+        'createdAt': createdAt.toIso8601String(),
+        'isRead': isRead,
+      };
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+        id: j['id'] as String,
+        type: NotificationType.values.firstWhere(
+          (t) => t.name == j['type'],
+          orElse: () => NotificationType.message,
+        ),
+        title: j['title'] as String? ?? '',
+        body: j['body'] as String? ?? '',
+        createdAt: DateTime.parse(j['createdAt'] as String),
+        isRead: j['isRead'] as bool? ?? false,
+      );
 }

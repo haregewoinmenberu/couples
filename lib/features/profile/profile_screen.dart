@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -11,11 +12,38 @@ import '../../state/app_state.dart';
 import '../../state/content_state.dart';
 import '../../state/music_state.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  Future<void> _changeAvatar() async {
+    final picker = ImagePicker();
+    final img = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (img == null || !mounted) return;
+    // Avatar art is seed-based in this app; derive a stable seed from the
+    // picked file so the change persists across restarts.
+    final seed = img.name.hashCode.toString();
+    final user = ref.read(sessionProvider).currentUser;
+    if (user == null) return;
+    ref.read(sessionProvider.notifier).updateProfile(
+          user.copyWith(avatarSeed: seed),
+        );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo updated')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final favorites = ref.watch(favoritesProvider);
     final playlists = ref.watch(playlistsProvider);
@@ -35,6 +63,10 @@ class ProfileScreen extends ConsumerWidget {
             expandedHeight: 200,
             pinned: true,
             actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none_rounded),
+                onPressed: () => context.push('/notifications'),
+              ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 onPressed: () => context.push('/settings'),
@@ -59,14 +91,17 @@ class ProfileScreen extends ConsumerWidget {
                           Positioned(
                             bottom: 0,
                             right: 0,
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: const BoxDecoration(
-                                  color: AppColors.rose,
-                                  shape: BoxShape.circle),
-                              child: const Icon(Icons.camera_alt_rounded,
-                                  size: 12, color: Colors.white),
+                            child: GestureDetector(
+                              onTap: _changeAvatar,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: const BoxDecoration(
+                                    color: AppColors.rose,
+                                    shape: BoxShape.circle),
+                                child: const Icon(Icons.camera_alt_rounded,
+                                    size: 12, color: Colors.white),
+                              ),
                             ),
                           ),
                         ],
@@ -160,7 +195,7 @@ class ProfileScreen extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () => context.push('/auth/profile'),
                     child: const Text('Edit Profile'),
                   ),
                 ),

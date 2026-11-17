@@ -10,6 +10,7 @@ import { dedicationsRouter } from './routes/dedications';
 import { chatRouter } from './routes/chat';
 import { adminRouter } from './routes/admin';
 import { privacyRouter } from './routes/privacy';
+import { invitationsRouter } from './routes/invitations';
 
 const app = express();
 const PORT = process.env.PORT ?? 3400;
@@ -35,6 +36,9 @@ app.use('/admin', adminRouter);
 
 // Privacy / consent API
 app.use('/api/privacy', privacyRouter);
+
+// Phone-number invitations
+app.use('/api/invitations', invitationsRouter);
 
 // Health
 app.get('/health', (_req, res) => res.json({ ok: true }));

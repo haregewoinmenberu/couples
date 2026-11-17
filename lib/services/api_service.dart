@@ -49,13 +49,20 @@ class ApiService {
     required String phoneNumber,
     String countryCode = '+1',
   }) async {
-    return await _req('POST', '/api/users/register', body: {
+    final body = {
       'fullName': fullName,
       'username': username,
       'email': email,
       'phoneNumber': phoneNumber,
       'countryCode': countryCode,
-    });
+    };
+    try {
+      return await _req('POST', '/api/users', body: body);
+    } on ApiException catch (e) {
+      if (e.status != 404) rethrow;
+      // Older deployments exposed registration under /register.
+      return await _req('POST', '/api/users/register', body: body);
+    }
   }
 
   static Future<Map<String, dynamic>?> getUserByEmail(String email) async {
@@ -101,7 +108,7 @@ class ApiService {
     String? imageUrl,
     String type = 'text',
   }) async {
-    return await _req('POST', '/api/chat', body: {
+    return await _req('POST', '/api/chat/$coupleId', body: {
       'coupleId': coupleId,
       'senderId': senderId,
       'text': text,
@@ -176,6 +183,113 @@ class ApiService {
       if (e.status == 404) return null;
       rethrow;
     }
+  }
+
+  /// Create a memory and upload its photos in one multipart request.
+  static Future<Map<String, dynamic>> createMemoryWithPhotos({
+    required String title,
+    required String description,
+    required DateTime date,
+    required String createdByUserId,
+    String? coupleId,
+    String? location,
+    List<File> photos = const [],
+  }) async {
+    final uri = Uri.parse('$_base/api/memories');
+    final req = http.MultipartRequest('POST', uri)
+      ..fields['title'] = title
+      ..fields['description'] = description
+      ..fields['date'] = date.toIso8601String()
+      ..fields['createdByUserId'] = createdByUserId;
+    if (coupleId != null) req.fields['coupleId'] = coupleId;
+    if (location != null) req.fields['location'] = location;
+    for (final file in photos) {
+      req.files.add(await http.MultipartFile.fromPath('photos', file.path));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    if (res.statusCode >= 400) throw ApiException(res.statusCode, res.body);
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  // ── Invitations (phone-number matching) ───────────────────────────────────
+
+  static Future<Map<String, dynamic>> createInvitation({
+    required String inviterId,
+    required String inviteePhone,
+    String? code,
+  }) async {
+    return await _req('POST', '/api/invitations', body: {
+      'inviterId': inviterId,
+      'inviteePhone': inviteePhone,
+      if (code != null) 'code': code,
+    });
+  }
+
+  /// Returns the pending invitation addressed to [phone], or null when the
+  /// device number does not match any invitation (i.e. they are not a couple).
+  static Future<Map<String, dynamic>?> getInvitationForPhone(String phone) async {
+    try {
+      return await _req(
+          'GET', '/api/invitations/by-phone/${Uri.encodeComponent(phone)}');
+    } on ApiException catch (e) {
+      if (e.status == 404) return null;
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> acceptInvitation(String id) async {
+    return await _req('PATCH', '/api/invitations/$id/accept');
+  }
+
+  static Future<List<dynamic>> getInvitationsByInviter(String inviterId) async {
+    try {
+      return await _req('GET', '/api/invitations/by-inviter/$inviterId');
+    } on ApiException catch (e) {
+      if (e.status == 404) return const [];
+      rethrow;
+    }
+  }
+
+  // ── Privacy / consent ──────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getConsents(String userId) async {
+    try {
+      return await _req('GET', '/api/privacy/consent/$userId');
+    } on ApiException catch (e) {
+      if (e.status == 404) return null;
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> setConsent({
+    required String userId,
+    required String permission,
+    required bool granted,
+  }) async {
+    return await _req('POST', '/api/privacy/consent', body: {
+      'userId': userId,
+      'permission': permission,
+      'granted': granted,
+    });
+  }
+
+  // ── Dedications ────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> createDedication({
+    required String fromUserId,
+    required String songId,
+    String? coupleId,
+    required String type,
+    required String message,
+  }) async {
+    return await _req('POST', '/api/dedications', body: {
+      'fromUserId': fromUserId,
+      'songId': songId,
+      'coupleId': coupleId,
+      'type': type,
+      'message': message,
+    });
   }
 
   // ── Upload image ───────────────────────────────────────────────────────────

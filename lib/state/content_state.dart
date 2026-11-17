@@ -18,6 +18,7 @@ import '../data/mock/mock_notifications.dart';
 import '../data/mock/mock_people.dart';
 import '../data/mock/mock_songs.dart';
 import '../services/api_service.dart';
+import '../services/local_store.dart';
 
 // ─── Songs ────────────────────────────────────────────────────────────────────
 
@@ -47,28 +48,37 @@ final songsProvider =
 
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   final String? coupleId;
-  ChatNotifier(this.coupleId) : super([]) {
-    if (coupleId != null) {
-      _load();
+  ChatNotifier(this.coupleId) : super(const []) {
+    _load();
+  }
+
+  void _persist() => LocalStore.writeList(
+      'chat_messages', state.map((m) => m.toJson()).toList());
+
+  Future<void> _load() async {
+    final rows = await LocalStore.readList('chat_messages');
+    if (rows.isNotEmpty) {
+      state = rows.map(ChatMessage.fromStoredJson).toList();
     } else {
       state = List.from(mockMessages);
     }
-  }
-
-  Future<void> _load() async {
-    try {
-      final raw = await ApiService.getMessages(coupleId!);
-      state = raw
-          .map((j) => ChatMessage.fromJson(j as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      state = List.from(mockMessages);
+    if (coupleId != null) {
+      try {
+        final raw = await ApiService.getMessages(coupleId!);
+        final server = raw
+            .map((j) => ChatMessage.fromJson(j as Map<String, dynamic>))
+            .where((m) => !state.any((existing) => existing.id == m.id));
+        state = [...state, ...server];
+        _persist();
+      } catch (_) {}
     }
   }
 
-  Future<void> send(ChatMessage msg, {String? coupleId}) async {
+  Future<void> send(ChatMessage msg,
+      {String? coupleId, String? imageUrl}) async {
     // Optimistic add
     state = [...state, msg];
+    _persist();
     final cId = coupleId ?? this.coupleId;
     if (cId == null) return;
     try {
@@ -77,6 +87,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
         senderId: msg.senderId,
         text: msg.text,
         songId: msg.songId,
+        imageUrl: imageUrl,
         type: msg.type.name,
       );
       // Replace optimistic with server record
@@ -84,6 +95,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
       state = state
           .map((m) => m.id == msg.id ? serverMsg : m)
           .toList();
+      _persist();
     } catch (_) {
       // Keep optimistic message on error
     }
@@ -100,6 +112,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
       }
       return m.copyWith(reactions: updated);
     }).toList();
+    _persist();
   }
 
   void delete(String messageId, String requestingUserId) {
@@ -109,6 +122,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
       }
       return m;
     }).toList();
+    _persist();
   }
 }
 
@@ -123,28 +137,67 @@ final chatProvider =
 // ─── Playlists ────────────────────────────────────────────────────────────────
 
 class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
-  PlaylistsNotifier() : super(List.from(mockPlaylists));
+  PlaylistsNotifier() : super(const []) {
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('playlists');
+    state = rows.isEmpty
+        ? List.from(mockPlaylists)
+        : rows.map(Playlist.fromJson).toList();
+  }
+
+  void _persist() =>
+      LocalStore.writeList('playlists', state.map((p) => p.toJson()).toList());
 
   Future<void> loadForCouple(String coupleId) async {
     try {
       final raw = await ApiService.getPlaylists(coupleId);
       if (raw.isEmpty) return;
-      // Keep mock data as base, add server playlists on top
-      state = List.from(mockPlaylists);
+      final server = raw.map((j) {
+        final m = j as Map<String, dynamic>;
+        return Playlist(
+          id: m['id'] as String,
+          title: m['name'] as String? ?? 'Untitled',
+          description: m['description'] as String?,
+          coverSeed: (m['createdAt']?.toString().hashCode ?? 0).abs() % 8,
+          createdByUserId:
+              (m['createdBy'] as Map<String, dynamic>?)?['id'] as String? ??
+                  '',
+          createdAt: m['createdAt'] != null
+              ? DateTime.tryParse(m['createdAt'] as String) ?? DateTime.now()
+              : DateTime.now(),
+        );
+      }).where((p) => !state.any((existing) => existing.id == p.id));
+      state = [...state, ...server];
+      _persist();
     } catch (_) {}
   }
 
-  void add(Playlist playlist) => state = [...state, playlist];
+  void add(Playlist playlist) {
+    state = [...state, playlist];
+    _persist();
+  }
+
   void update(Playlist updated) {
     state = state.map((p) => p.id == updated.id ? updated : p).toList();
+    _persist();
   }
-  void remove(String id) => state = state.where((p) => p.id != id).toList();
+
+  void remove(String id) {
+    state = state.where((p) => p.id != id).toList();
+    _persist();
+  }
+
   void addSong(String playlistId, PlaylistSongEntry entry) {
     state = state.map((p) {
       if (p.id != playlistId) return p;
       return p.copyWith(songs: [...p.songs, entry]);
     }).toList();
+    _persist();
   }
+
   void removeSong(String playlistId, String songId) {
     state = state.map((p) {
       if (p.id != playlistId) return p;
@@ -152,6 +205,7 @@ class PlaylistsNotifier extends StateNotifier<List<Playlist>> {
         songs: p.songs.where((e) => e.songId != songId).toList(),
       );
     }).toList();
+    _persist();
   }
 }
 
@@ -163,7 +217,19 @@ final playlistsProvider =
 // ─── Memories ─────────────────────────────────────────────────────────────────
 
 class MemoriesNotifier extends StateNotifier<List<Memory>> {
-  MemoriesNotifier() : super(List.from(mockMemories));
+  MemoriesNotifier() : super(const []) {
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('memories');
+    state = rows.isEmpty
+        ? List.from(mockMemories)
+        : rows.map(Memory.fromJson).toList();
+  }
+
+  void _persist() =>
+      LocalStore.writeList('memories', state.map((m) => m.toJson()).toList());
 
   Future<void> loadForCouple(String coupleId) async {
     try {
@@ -171,8 +237,11 @@ class MemoriesNotifier extends StateNotifier<List<Memory>> {
       if (raw.isEmpty) return;
       final serverMemories = raw
           .map((j) => Memory.fromJson(j as Map<String, dynamic>))
+          .where((m) => !state.any((existing) => existing.id == m.id))
           .toList();
-      state = serverMemories;
+      if (serverMemories.isEmpty) return;
+      state = [...serverMemories, ...state];
+      _persist();
     } catch (_) {}
   }
 
@@ -186,16 +255,27 @@ class MemoriesNotifier extends StateNotifier<List<Memory>> {
     List<File> photos = const [],
   }) async {
     try {
-      final data = await ApiService.createMemory(
-        title: title,
-        description: description,
-        date: date,
-        createdByUserId: userId,
-        coupleId: coupleId,
-        location: location,
-      );
+      final data = photos.isEmpty
+          ? await ApiService.createMemory(
+              title: title,
+              description: description,
+              date: date,
+              createdByUserId: userId,
+              coupleId: coupleId,
+              location: location,
+            )
+          : await ApiService.createMemoryWithPhotos(
+              title: title,
+              description: description,
+              date: date,
+              createdByUserId: userId,
+              coupleId: coupleId,
+              location: location,
+              photos: photos,
+            );
       final memory = Memory.fromJson(data);
       state = [memory, ...state];
+      _persist();
     } catch (_) {
       // Fall back to local-only
       add(Memory(
@@ -209,16 +289,27 @@ class MemoriesNotifier extends StateNotifier<List<Memory>> {
     }
   }
 
-  void add(Memory memory) => state = [memory, ...state];
+  void add(Memory memory) {
+    state = [memory, ...state];
+    _persist();
+  }
+
   void update(Memory updated) {
     state = state.map((m) => m.id == updated.id ? updated : m).toList();
+    _persist();
   }
-  void remove(String id) => state = state.where((m) => m.id != id).toList();
+
+  void remove(String id) {
+    state = state.where((m) => m.id != id).toList();
+    _persist();
+  }
+
   void toggleFavorite(String id) {
     state = state.map((m) {
       if (m.id != id) return m;
       return m.copyWith(isFavorite: !m.isFavorite);
     }).toList();
+    _persist();
   }
 }
 
@@ -230,7 +321,19 @@ final memoriesProvider =
 // ─── Daily Questions ──────────────────────────────────────────────────────────
 
 class QuestionsNotifier extends StateNotifier<List<DailyQuestion>> {
-  QuestionsNotifier() : super(List.from(mockQuestions));
+  QuestionsNotifier() : super(const []) {
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('questions');
+    state = rows.isEmpty
+        ? List.from(mockQuestions)
+        : rows.map(DailyQuestion.fromJson).toList();
+  }
+
+  void _persist() => LocalStore.writeList(
+      'questions', state.map((q) => q.toJson()).toList());
 
   void answer(String questionId, QuestionAnswer answer) {
     state = state.map((q) {
@@ -238,6 +341,7 @@ class QuestionsNotifier extends StateNotifier<List<DailyQuestion>> {
       if (q.answeredBy(answer.userId)) return q;
       return q.copyWith(answers: [...q.answers, answer]);
     }).toList();
+    _persist();
   }
 }
 
@@ -249,13 +353,26 @@ final questionsProvider =
 // ─── Challenges ───────────────────────────────────────────────────────────────
 
 class ChallengesNotifier extends StateNotifier<List<Challenge>> {
-  ChallengesNotifier() : super(List.from(mockChallenges));
+  ChallengesNotifier() : super(const []) {
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('challenges');
+    state = rows.isEmpty
+        ? List.from(mockChallenges)
+        : rows.map(Challenge.fromJson).toList();
+  }
+
+  void _persist() => LocalStore.writeList(
+      'challenges', state.map((c) => c.toJson()).toList());
 
   void respond(String challengeId, ChallengeResponse response) {
     state = state.map((c) {
       if (c.id != challengeId) return c;
       return c.copyWith(responses: [...c.responses, response]);
     }).toList();
+    _persist();
   }
 }
 
@@ -267,7 +384,19 @@ final challengesProvider =
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
-  NotificationsNotifier() : super(List.from(mockNotifications));
+  NotificationsNotifier() : super(const []) {
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('notifications');
+    state = rows.isEmpty
+        ? List.from(mockNotifications)
+        : rows.map(AppNotification.fromJson).toList();
+  }
+
+  void _persist() => LocalStore.writeList(
+      'notifications', state.map((n) => n.toJson()).toList());
 
   int get unreadCount => state.where((n) => !n.isRead).length;
 
@@ -276,6 +405,7 @@ class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
       if (n.id == id) n.isRead = true;
       return n;
     }).toList();
+    _persist();
   }
 
   void markAllRead() {
@@ -283,9 +413,13 @@ class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
       n.isRead = true;
       return n;
     }).toList();
+    _persist();
   }
 
-  void add(AppNotification notification) => state = [notification, ...state];
+  void add(AppNotification notification) {
+    state = [notification, ...state];
+    _persist();
+  }
 }
 
 final notificationsProvider =
@@ -296,19 +430,33 @@ final notificationsProvider =
 // ─── Moods ────────────────────────────────────────────────────────────────────
 
 class MoodsNotifier extends StateNotifier<List<MoodEntry>> {
-  MoodsNotifier()
-      : super([
-          MoodEntry(
-            id: 'mood_sophia_1',
-            userId: sophiaId,
-            mood: 'In Love',
-            songId: 's1',
-            message: 'Missing you so much today ❤️',
-            createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-          ),
-        ]);
+  MoodsNotifier() : super(const []) {
+    _loadLocal();
+  }
 
-  void add(MoodEntry entry) => state = [entry, ...state];
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('moods');
+    state = rows.isEmpty
+        ? [
+            MoodEntry(
+              id: 'mood_sophia_1',
+              userId: sophiaId,
+              mood: 'In Love',
+              songId: 's1',
+              message: 'Missing you so much today ❤️',
+              createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+            ),
+          ]
+        : rows.map(MoodEntry.fromJson).toList();
+  }
+
+  void _persist() =>
+      LocalStore.writeList('moods', state.map((m) => m.toJson()).toList());
+
+  void add(MoodEntry entry) {
+    state = [entry, ...state];
+    _persist();
+  }
 
   MoodEntry? latestFor(String userId) {
     final entries = state.where((m) => m.userId == userId).toList();
@@ -325,19 +473,33 @@ final moodsProvider =
 // ─── Dedications ──────────────────────────────────────────────────────────────
 
 class DedicationsNotifier extends StateNotifier<List<Dedication>> {
-  DedicationsNotifier()
-      : super([
-          Dedication(
-            id: 'd1',
-            fromUserId: sophiaId,
-            songId: 's2',
-            type: DedicationType.loveYou,
-            message: 'This song is us. Every word.',
-            createdAt: DateTime.now().subtract(const Duration(hours: 20)),
-          ),
-        ]);
+  DedicationsNotifier() : super(const []) {
+    _loadLocal();
+  }
 
-  void add(Dedication dedication) => state = [dedication, ...state];
+  Future<void> _loadLocal() async {
+    final rows = await LocalStore.readList('dedications');
+    state = rows.isEmpty
+        ? [
+            Dedication(
+              id: 'd1',
+              fromUserId: sophiaId,
+              songId: 's2',
+              type: DedicationType.loveYou,
+              message: 'This song is us. Every word.',
+              createdAt: DateTime.now().subtract(const Duration(hours: 20)),
+            ),
+          ]
+        : rows.map(Dedication.fromJson).toList();
+  }
+
+  void _persist() => LocalStore.writeList(
+      'dedications', state.map((d) => d.toJson()).toList());
+
+  void add(Dedication dedication) {
+    state = [dedication, ...state];
+    _persist();
+  }
 }
 
 final dedicationsProvider =

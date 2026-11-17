@@ -10,6 +10,7 @@ import '../../data/mock/mock_people.dart';
 import '../../data/models/dedication.dart';
 import '../../state/app_state.dart';
 import '../../state/content_state.dart';
+import '../../services/api_service.dart';
 import '../../widgets/common/primary_button.dart';
 
 class DedicationScreen extends ConsumerStatefulWidget {
@@ -32,20 +33,30 @@ class _DedicationScreenState extends ConsumerState<DedicationScreen> {
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _send() async {
     if (_selectedSongId == null || _selectedType == null) return;
     final session = ref.read(sessionProvider);
-    ref.read(dedicationsProvider.notifier).add(
-          Dedication(
-            id: 'ded_${DateTime.now().millisecondsSinceEpoch}',
-            fromUserId: session.currentUser?.id ?? alexId,
-            songId: _selectedSongId!,
-            type: _selectedType!,
-            message: _msgCtrl.text.trim(),
-            createdAt: DateTime.now(),
-          ),
-        );
-    setState(() => _sent = true);
+    final dedication = Dedication(
+      id: 'ded_${DateTime.now().millisecondsSinceEpoch}',
+      fromUserId: session.currentUser?.id ?? alexId,
+      songId: _selectedSongId!,
+      type: _selectedType!,
+      message: _msgCtrl.text.trim(),
+      createdAt: DateTime.now(),
+    );
+    ref.read(dedicationsProvider.notifier).add(dedication);
+    try {
+      await ApiService.createDedication(
+        fromUserId: dedication.fromUserId,
+        songId: dedication.songId,
+        coupleId: session.couple?.id,
+        type: dedication.type.name,
+        message: dedication.message,
+      );
+    } catch (_) {
+      // Dedication is still saved locally and shown to the partner in-app.
+    }
+    if (mounted) setState(() => _sent = true);
   }
 
   @override
@@ -276,7 +287,7 @@ class _DedicationScreenState extends ConsumerState<DedicationScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _send,
+                  onPressed: () => _send(),
                   child: const Text('Send ❤️'),
                 ),
               ),

@@ -27,6 +27,9 @@ class AppColors {
   static const Color error = Color(0xFFD46C75);
   static const Color darkPlayer = Color(0xFF1A0D30);
   static const Color darkPlayerSecondary = Color(0xFF2D1F4A);
+  static const Color darkBackground = Color(0xFF140A24);
+  static const Color darkSurface = Color(0xFF241640);
+  static const Color darkBorder = Color(0xFF3A2A5A);
 
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,

@@ -47,6 +47,91 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
     super.dispose();
   }
 
+  void _showFilters(BuildContext context) {
+    final genreCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Filter music', style: AppTextStyles.h3()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Mood', style: AppTextStyles.caption()),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: discoveryMoodFilters.map((m) {
+                final sel = _selectedMood == m;
+                return ChoiceChip(
+                  label: Text(m),
+                  selected: sel,
+                  onSelected: (_) {
+                    setState(() => _selectedMood = sel ? null : m);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: genreCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Genre (optional)',
+                  hintText: 'e.g. Pop, R&B'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _selectedMood = null;
+                _query = '';
+              });
+              _searchCtrl.clear();
+              Navigator.pop(context);
+            },
+            child: const Text('Reset'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final g = genreCtrl.text.trim();
+              Navigator.pop(context);
+              ref.read(songsProvider.notifier).load(genre: g.isEmpty ? null : g);
+              if (g.isNotEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Filtering by genre: $g')),
+                );
+              }
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAll(BuildContext context, String title, List<Song> songs) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(title, style: AppTextStyles.h3()),
+        ),
+        body: songs.isEmpty
+            ? Center(
+                child: Text('No songs yet.',
+                    style: AppTextStyles.body(color: AppColors.textSecondary)))
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                itemCount: songs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => SongCard(song: songs[i]),
+              ),
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final songsAsync = ref.watch(songsProvider);
@@ -66,7 +151,7 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.tune_rounded),
-                onPressed: () {},
+                onPressed: () => _showFilters(context),
               ),
             ],
           ),
@@ -153,7 +238,7 @@ class _MusicDiscoveryScreenState extends ConsumerState<MusicDiscoveryScreen> {
                   _SectionHeader(
                       title: 'Recommended for You',
                       action: 'See all',
-                      onAction: () {}),
+                      onAction: () => _showAll(context, 'Recommended for You', allSongs)),
                   const SizedBox(height: 10),
                   ...allSongs.take(4).map((s) => SongCard(song: s)),
                   const SizedBox(height: 20),

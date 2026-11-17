@@ -50,7 +50,29 @@ class WelcomeScreen extends StatelessWidget {
               SecondaryButton(
                 label: 'Continue with Google',
                 icon: Icons.g_mobiledata_rounded,
-                onTap: () => context.go('/home'),
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Google Sign-In'),
+                    content: const Text(
+                      'Google sign-in is not configured in this build. '
+                      'Use your email or create an account to continue.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          context.go('/auth/login');
+                        },
+                        child: const Text('Use Email'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
               const _OrDivider(),

@@ -44,4 +44,38 @@ class Playlist {
       songs: songs ?? this.songs,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'coverSeed': coverSeed,
+        'createdByUserId': createdByUserId,
+        'createdAt': createdAt.toIso8601String(),
+        'songs': songs
+            .map((e) => {
+                  'songId': e.songId,
+                  'addedByUserId': e.addedByUserId,
+                  'addedAt': e.addedAt.toIso8601String(),
+                })
+            .toList(),
+      };
+
+  factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        description: j['description'] as String?,
+        coverSeed: (j['coverSeed'] as num?)?.toInt() ?? 0,
+        createdByUserId: j['createdByUserId'] as String,
+        createdAt: DateTime.parse(j['createdAt'] as String),
+        songs: (j['songs'] as List? ?? [])
+            .map((e) => PlaylistSongEntry(
+                  songId: e['songId'] as String,
+                  addedByUserId: e['addedByUserId'] as String? ?? '',
+                  addedAt: e['addedAt'] != null
+                      ? DateTime.parse(e['addedAt'] as String)
+                      : DateTime.now(),
+                ))
+            .toList(),
+      );
 }

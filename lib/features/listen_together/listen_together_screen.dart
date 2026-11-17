@@ -10,11 +10,27 @@ import '../../data/mock/mock_songs.dart';
 import '../../state/app_state.dart';
 import '../../state/music_state.dart';
 
-class ListenTogetherScreen extends ConsumerWidget {
+class ListenTogetherScreen extends ConsumerStatefulWidget {
   const ListenTogetherScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ListenTogetherScreen> createState() =>
+      _ListenTogetherScreenState();
+}
+
+class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
+  final Map<String, int> _reactionCounts = {};
+  String? _lastReaction;
+
+  void _react(String emoji) {
+    setState(() {
+      _reactionCounts[emoji] = (_reactionCounts[emoji] ?? 0) + 1;
+      _lastReaction = emoji;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final player = ref.watch(playerProvider);
     final me = session.currentUser ?? mockAlex;
@@ -189,14 +205,26 @@ class ListenTogetherScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
               // Queue & reactions
+              if (_lastReaction != null) ...[
+                Text('You sent $_lastReaction',
+                    style: AppTextStyles.caption(color: Colors.white54)),
+                const SizedBox(height: 6),
+              ],
               Row(
                 children: ['❤️', '🔥', '😍', '🎵', '👏'].map((e) {
+                  final count = _reactionCounts[e] ?? 0;
                   return Expanded(
                     child: GestureDetector(
-                      onTap: () {},
-                      child: Center(
-                        child: Text(e,
-                            style: const TextStyle(fontSize: 22)),
+                      onTap: () => _react(e),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(e, style: const TextStyle(fontSize: 22)),
+                          if (count > 0)
+                            Text('$count',
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.white54)),
+                        ],
                       ),
                     ),
                   );

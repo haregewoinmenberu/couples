@@ -1,27 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../services/device_phone_service.dart';
+import '../../state/app_state.dart';
 import '../../widgets/common/primary_button.dart';
 
-class PhoneVerifyScreen extends StatefulWidget {
+class PhoneVerifyScreen extends ConsumerStatefulWidget {
   const PhoneVerifyScreen({super.key});
 
   @override
-  State<PhoneVerifyScreen> createState() => _PhoneVerifyScreenState();
+  ConsumerState<PhoneVerifyScreen> createState() => _PhoneVerifyScreenState();
 }
 
-class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
+class _PhoneVerifyScreenState extends ConsumerState<PhoneVerifyScreen> {
   final _phoneCtrl = TextEditingController();
-  String _country = '+1';
   bool _loading = false;
+  bool _detecting = true;
+  bool _detected = false;
 
-  final _countries = const ['+1', '+44', '+251', '+49', '+33', '+81', '+86'];
+  @override
+  void initState() {
+    super.initState();
+    _detect();
+  }
+
+  Future<void> _detect() async {
+    final user = ref.read(sessionProvider).currentUser;
+    // Prefer the number already saved on the profile; otherwise ask the OS.
+    String? number = user?.phoneNumber;
+    number ??= await DevicePhoneService.detect();
+    if (number != null && number.isNotEmpty) {
+      _phoneCtrl.text = number.replaceAll(RegExp(r'^\+\d+\s?'), '');
+      _detected = true;
+    }
+    if (mounted) setState(() => _detecting = false);
+  }
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final raw = _phoneCtrl.text.trim();
+    if (raw.isEmpty) return;
+    final router = GoRouter.of(context);
+    setState(() => _loading = true);
+
+    // The stored number always keeps its country code so both devices match.
+    final fullNumber = raw.startsWith('+') ? raw : '+1$raw';
+    await DevicePhoneService.cache(fullNumber);
+
+    final user = ref.read(sessionProvider).currentUser;
+    if (user != null) {
+      ref.read(sessionProvider.notifier).updateProfile(
+            user.copyWith(
+              phoneNumber: fullNumber,
+              countryCode: '+1',
+              phoneVerified: true,
+            ),
+          );
+    }
+    if (!mounted) return;
+    setState(() => _loading = false);
+    router.go('/connection/invite');
   }
 
   @override
@@ -41,11 +86,14 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
                     const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               ),
               const SizedBox(height: 32),
-              Text('Verify Your Number', style: AppTextStyles.h1()),
+              Text('Your Phone Number', style: AppTextStyles.h1()),
               const SizedBox(height: 6),
-              Text('We\'ll send a one-time code to verify your phone.',
-                  style:
-                      AppTextStyles.body(color: AppColors.textSecondary)),
+              Text(
+                'We detected the number of this device. Confirm it below — '
+                'no code is needed. When your partner installs the app, their '
+                'number is checked against your invitation automatically.',
+                style: AppTextStyles.body(color: AppColors.textSecondary),
+              ),
               const SizedBox(height: 36),
               Text('Phone Number', style: AppTextStyles.caption()),
               const SizedBox(height: 6),
@@ -58,44 +106,53 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
                       color: AppColors.backgroundSecondary,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: DropdownButton<String>(
-                      value: _country,
-                      underline: const SizedBox(),
-                      isDense: true,
-                      items: _countries
-                          .map((c) => DropdownMenuItem(
-                              value: c,
-                              child: Text(c,
-                                  style: AppTextStyles.body())))
-                          .toList(),
-                      onChanged: (v) =>
-                          setState(() => _country = v ?? _country),
-                    ),
+                    child: Text('+1', style: AppTextStyles.bodyMedium()),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                          hintText: '555 0101'),
+                      decoration: InputDecoration(
+                        hintText: '555 0101',
+                        suffixIcon: _detecting
+                            ? const Padding(
+                                padding: EdgeInsets.all(14),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.rose),
+                                ),
+                              )
+                            : _detected
+                                ? const Icon(Icons.phonelink_setup_rounded,
+                                    color: AppColors.success, size: 20)
+                                : null,
+                      ),
                     ),
                   ),
                 ],
               ),
+              if (_detected) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        size: 14, color: AppColors.success),
+                    const SizedBox(width: 6),
+                    Text('Detected from this device',
+                        style: AppTextStyles.caption(
+                            color: AppColors.success)),
+                  ],
+                ),
+              ],
               const Spacer(),
               PrimaryButton(
-                label: 'Send Code',
-                loading: _loading,
-                onTap: () async {
-                  if (_phoneCtrl.text.isEmpty) return;
-                  setState(() => _loading = true);
-                  await Future.delayed(const Duration(seconds: 1));
-                  if (!mounted) return;
-                  setState(() => _loading = false);
-                  final phone = '$_country ${_phoneCtrl.text}';
-                  context.push('/connection/otp', extra: phone);
-                },
+                label: 'Save & Continue',
+                loading: _loading || _detecting,
+                onTap: _detecting ? null : _save,
               ),
               const SizedBox(height: 8),
             ],

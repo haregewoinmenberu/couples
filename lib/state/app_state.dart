@@ -4,6 +4,7 @@ import '../data/models/couple.dart';
 import '../data/models/invitation.dart';
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
+import '../services/local_store.dart';
 
 // ─── Auth / Session ──────────────────────────────────────────────────────────
 
@@ -205,6 +206,26 @@ class SessionNotifier extends StateNotifier<SessionState> {
       partner: state.partner?.toJson(),
     );
   }
+
+  /// Update the shared anniversary date and persist the whole session.
+  Future<void> updateAnniversary(DateTime date) async {
+    final couple = state.couple;
+    if (couple == null) return;
+    final updated = Couple(
+      id: couple.id,
+      userAId: couple.userAId,
+      userBId: couple.userBId,
+      anniversaryDate: date,
+      connectedAt: couple.connectedAt,
+    );
+    final user = state.currentUser!;
+    await AuthStorage.save(
+      user: user.toJson(),
+      couple: updated.toJson(),
+      partner: state.partner?.toJson(),
+    );
+    state = state.copyWith(couple: updated);
+  }
 }
 
 final sessionProvider =
@@ -215,9 +236,22 @@ final sessionProvider =
 // ─── Invitation registry ──────────────────────────────────────────────────────
 
 class InvitationRegistry extends StateNotifier<List<Invitation>> {
-  InvitationRegistry() : super([]);
+  InvitationRegistry() : super([]) {
+    _load();
+  }
 
-  void add(Invitation invitation) => state = [...state, invitation];
+  Future<void> _load() async {
+    final rows = await LocalStore.readList('invitations');
+    state = rows.map(Invitation.fromJson).toList();
+  }
+
+  void _persist() =>
+      LocalStore.writeList('invitations', state.map((i) => i.toJson()).toList());
+
+  void add(Invitation invitation) {
+    state = [...state, invitation];
+    _persist();
+  }
 
   void cancel(String invitationId, String userId) {
     state = state.map((inv) {
@@ -226,6 +260,7 @@ class InvitationRegistry extends StateNotifier<List<Invitation>> {
       }
       return inv;
     }).toList();
+    _persist();
   }
 
   Invitation? redeem({
@@ -243,6 +278,7 @@ class InvitationRegistry extends StateNotifier<List<Invitation>> {
     updated[idx].status = InvitationStatus.accepted;
     updated[idx].redeemedByUserId = redeemingUserId;
     state = updated;
+    _persist();
     return updated[idx];
   }
 }

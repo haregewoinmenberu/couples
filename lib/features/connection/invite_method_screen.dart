@@ -53,7 +53,7 @@ class InviteMethodScreen extends ConsumerWidget {
               _MethodTile(
                 icon: Icons.smartphone_rounded,
                 title: 'Invite by Phone Number',
-                subtitle: 'Send invitation via phone number',
+                subtitle: 'We match their device number automatically',
                 onTap: () => context.push('/connection/invite/phone'),
               ),
               const Spacer(),

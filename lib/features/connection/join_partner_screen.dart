@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../core/utils/artwork_generator.dart';
 import '../../core/utils/invitation_generator.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common/primary_button.dart';
+import 'connection_payload.dart';
 
 class JoinPartnerScreen extends ConsumerStatefulWidget {
   const JoinPartnerScreen({super.key});
@@ -56,9 +58,34 @@ class _JoinPartnerScreenState extends ConsumerState<JoinPartnerScreen> {
       return;
     }
 
-    // Simulate phone verify then success
+    // Both partners use the same device, so no phone/OTP verification is
+    // needed — connect straight away using the redeemed inviter.
     if (!mounted) return;
-    context.push('/connection/otp', extra: 'your phone');
+    context.go(
+      '/connection/success',
+      extra: ConnectionPayload(inviterId: redeemed.inviterId),
+    );
+  }
+
+  void _scanQr() async {
+    // This build has no camera scanner dependency; accept a code pasted from
+    // the clipboard (the QR payload is `oursound://invite/<code>`).
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    String? code = data?.text?.trim();
+    if (code != null) {
+      final uri = Uri.tryParse(code);
+      if (uri != null && uri.pathSegments.isNotEmpty) {
+        code = uri.pathSegments.last;
+      }
+    }
+    if (!mounted) return;
+    if (code == null || code.isEmpty || !isValidCodeFormat(code)) {
+      setState(() => _error =
+          'No invitation code found on the clipboard. Copy your partner\'s code and try again.');
+      return;
+    }
+    _codeCtrl.text = code.toUpperCase();
+    _joinWithCode();
   }
 
   @override
@@ -96,10 +123,7 @@ class _JoinPartnerScreenState extends ConsumerState<JoinPartnerScreen> {
               const SizedBox(height: 32),
               // Mock QR scanner area
               GestureDetector(
-                onTap: () {
-                  // Simulate successful QR scan
-                  context.push('/connection/otp', extra: 'your phone');
-                },
+                onTap: _scanQr,
                 child: Container(
                   width: double.infinity,
                   height: 200,

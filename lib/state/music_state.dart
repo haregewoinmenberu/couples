@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/song.dart';
+import '../services/local_store.dart';
 
 class PlayerState {
   final Song? currentSong;
@@ -142,7 +143,17 @@ final playerProvider =
 });
 
 class FavoritesNotifier extends StateNotifier<Set<String>> {
-  FavoritesNotifier() : super({'s1', 's2', 's6', 's9'});
+  FavoritesNotifier() : super({'s1', 's2', 's6', 's9'}) {
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    final raw = await LocalStore.readString('favorites');
+    if (raw == null) return;
+    state = raw.split(',').where((s) => s.isNotEmpty).toSet();
+  }
+
+  void _persist() => LocalStore.writeString('favorites', state.join(','));
 
   void toggle(String songId) {
     final updated = Set<String>.from(state);
@@ -152,6 +163,7 @@ class FavoritesNotifier extends StateNotifier<Set<String>> {
       updated.add(songId);
     }
     state = updated;
+    _persist();
   }
 
   bool isFavorite(String songId) => state.contains(songId);

@@ -6,6 +6,8 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/invitation_generator.dart';
 import '../../data/models/invitation.dart';
+import '../../services/api_service.dart';
+import '../../services/device_phone_service.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common/primary_button.dart';
 
@@ -19,12 +21,9 @@ class InviteByPhoneScreen extends ConsumerStatefulWidget {
 
 class _InviteByPhoneScreenState extends ConsumerState<InviteByPhoneScreen> {
   final _phoneCtrl = TextEditingController();
-  String _country = '+1';
   bool _loading = false;
-  bool _sent = false;
+  String? _error;
   String? _sentCode;
-
-  final _countries = const ['+1', '+44', '+251', '+49', '+33', '+81', '+86'];
 
   @override
   void dispose() {
@@ -32,28 +31,48 @@ class _InviteByPhoneScreenState extends ConsumerState<InviteByPhoneScreen> {
     super.dispose();
   }
 
-  void _sendInvitation() async {
-    if (_phoneCtrl.text.trim().isEmpty) return;
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
+  Future<void> _sendInvitation() async {
+    final raw = _phoneCtrl.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _error = 'Please enter your partner\'s phone number.');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
-    final code = generateInvitationCode();
     final session = ref.read(sessionProvider);
-    final inv = Invitation(
+    final inviterId = session.currentUser?.id ?? '';
+    final fullNumber = raw.startsWith('+') ? raw : '+1$raw';
+    final normalized = DevicePhoneService.normalize(fullNumber);
+    final code = generateInvitationCode();
+
+    final invitation = Invitation(
       id: 'inv_phone_${DateTime.now().millisecondsSinceEpoch}',
       code: code,
-      inviterId: session.currentUser?.id ?? '',
+      inviterId: inviterId,
       method: InvitationMethod.phone,
-      inviteePhone: '$_country ${_phoneCtrl.text.trim()}',
+      inviteePhone: normalized,
       createdAt: DateTime.now(),
-      expiresAt: DateTime.now().add(const Duration(hours: 24)),
+      expiresAt: DateTime.now().add(const Duration(days: 7)),
     );
-    ref.read(invitationRegistryProvider.notifier).add(inv);
 
+    try {
+      await ApiService.createInvitation(
+        inviterId: inviterId,
+        inviteePhone: normalized,
+        code: code,
+      );
+    } catch (_) {
+      // Still saved locally so the flow works while offline / on the same
+      // device; the invitee's app checks this registry as a fallback.
+    }
+    ref.read(invitationRegistryProvider.notifier).add(invitation);
+
+    if (!mounted) return;
     setState(() {
       _loading = false;
-      _sent = true;
       _sentCode = code;
     });
   }
@@ -70,52 +89,51 @@ class _InviteByPhoneScreenState extends ConsumerState<InviteByPhoneScreen> {
             children: [
               GestureDetector(
                 onTap: () => context.pop(),
-                child:
-                    const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               ),
               const SizedBox(height: 28),
               Text('Invite by Phone Number', style: AppTextStyles.h2()),
               const SizedBox(height: 6),
-              Text('Send invitation via phone number',
+              Text('We will watch for this number to install OurSound.',
                   style: AppTextStyles.body(color: AppColors.textSecondary)),
               const SizedBox(height: 32),
-              if (!_sent) ...[
-                Text('Country', style: AppTextStyles.caption()),
+              if (_sentCode == null) ...[
+                Text('Partner\'s Phone Number', style: AppTextStyles.caption()),
                 const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.backgroundSecondary,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: DropdownButton<String>(
-                    value: _country,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: _countries
-                        .map((c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c, style: AppTextStyles.body())))
-                        .toList(),
-                    onChanged: (v) =>
-                        setState(() => _country = v ?? _country),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text('Phone Number', style: AppTextStyles.caption()),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration:
-                      const InputDecoration(hintText: '555 0101'),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundSecondary,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text('+1', style: AppTextStyles.bodyMedium()),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(hintText: '555 0101'),
+                        onChanged: (_) => setState(() => _error = null),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'An invitation with a secure link will be sent to this number.',
+                  'When they install the app, we check the number of their '
+                  'device. If it matches, you become a couple automatically — '
+                  'no code to enter.',
                   style: AppTextStyles.caption(),
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(_error!,
+                      style: AppTextStyles.caption(color: AppColors.error)),
+                ],
                 const SizedBox(height: 32),
                 PrimaryButton(
                   label: 'Send Invitation',
@@ -127,8 +145,7 @@ class _InviteByPhoneScreenState extends ConsumerState<InviteByPhoneScreen> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: AppColors.softPink,
-                    borderRadius:
-                        BorderRadius.circular(AppRadius.lg),
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
                   ),
                   child: Column(
                     children: [
@@ -140,20 +157,20 @@ class _InviteByPhoneScreenState extends ConsumerState<InviteByPhoneScreen> {
                           textAlign: TextAlign.center),
                       const SizedBox(height: 6),
                       Text(
-                        'An invitation was sent to $_country ${_phoneCtrl.text}.',
+                        'Waiting for ${_phoneCtrl.text} to install OurSound. '
+                        'We will connect you as soon as their device number '
+                        'matches.',
                         style: AppTextStyles.body(
                             color: AppColors.textSecondary),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 14),
-                      Text('Invitation Code',
-                          style: AppTextStyles.caption()),
-                      Text(_sentCode ?? '',
+                      Text('Invitation Code', style: AppTextStyles.caption()),
+                      Text(_sentCode!,
                           style: AppTextStyles.h3()
                               .copyWith(letterSpacing: 2)),
                       const SizedBox(height: 6),
-                      Text('Expires in 24 hours.',
-                          style: AppTextStyles.small()),
+                      Text('Expires in 7 days.', style: AppTextStyles.small()),
                     ],
                   ),
                 ),
@@ -162,8 +179,8 @@ class _InviteByPhoneScreenState extends ConsumerState<InviteByPhoneScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => setState(() => _sent = false),
-                        child: const Text('Resend'),
+                        onPressed: () => setState(() => _sentCode = null),
+                        child: const Text('Invite Another'),
                       ),
                     ),
                     const SizedBox(width: 12),

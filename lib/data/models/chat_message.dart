@@ -55,6 +55,40 @@ class ChatMessage {
         isDeleted: false,
       );
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'senderId': senderId,
+        'type': type.name,
+        'text': text,
+        'songId': songId,
+        'photoSeed': photoSeed,
+        'playlistId': playlistId,
+        'memoryId': memoryId,
+        'voiceDurationSecs': voiceDuration?.inSeconds,
+        'sentAt': sentAt.toIso8601String(),
+        'replyToMessageId': replyToMessageId,
+        'reactions': reactions,
+        'isDeleted': isDeleted,
+      };
+
+  factory ChatMessage.fromStoredJson(Map<String, dynamic> j) => ChatMessage(
+        id: j['id'] as String,
+        senderId: j['senderId'] as String,
+        type: MessageTypeX.fromString(j['type'] as String? ?? 'text'),
+        text: j['text'] as String?,
+        songId: j['songId'] as String?,
+        photoSeed: (j['photoSeed'] as num?)?.toInt(),
+        playlistId: j['playlistId'] as String?,
+        memoryId: j['memoryId'] as String?,
+        voiceDuration: j['voiceDurationSecs'] != null
+            ? Duration(seconds: (j['voiceDurationSecs'] as num).toInt())
+            : null,
+        sentAt: DateTime.parse(j['sentAt'] as String),
+        replyToMessageId: j['replyToMessageId'] as String?,
+        reactions: List<String>.from(j['reactions'] as List? ?? []),
+        isDeleted: j['isDeleted'] as bool? ?? false,
+      );
+
   ChatMessage copyWith({
     List<String>? reactions,
     bool? isDeleted,

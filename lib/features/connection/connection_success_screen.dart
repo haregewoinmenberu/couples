@@ -6,14 +6,75 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/artwork_generator.dart';
 import '../../data/mock/mock_people.dart';
+import '../../data/models/couple.dart';
+import '../../data/models/user.dart';
+import '../../services/api_service.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common/primary_button.dart';
 
-class ConnectionSuccessScreen extends ConsumerWidget {
-  const ConnectionSuccessScreen({super.key});
+class ConnectionSuccessScreen extends ConsumerStatefulWidget {
+  final String? inviterId;
+  const ConnectionSuccessScreen({super.key, this.inviterId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConnectionSuccessScreen> createState() =>
+      _ConnectionSuccessScreenState();
+}
+
+class _ConnectionSuccessScreenState
+    extends ConsumerState<ConnectionSuccessScreen> {
+  bool _connecting = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _establishCouple());
+  }
+
+  Future<void> _establishCouple() async {
+    final session = ref.read(sessionProvider);
+    final me = session.currentUser;
+    final inviterId = widget.inviterId;
+
+    // If there's no real inviter (e.g. direct navigation), keep the seeded
+    // demo partner so the rest of the app has coherent data.
+    if (me == null || inviterId == null || inviterId.isEmpty) {
+      if (mounted) setState(() => _connecting = false);
+      return;
+    }
+
+    try {
+      Map<String, dynamic>? coupleData =
+          await ApiService.getCoupleForUser(me.id);
+      coupleData ??= await ApiService.createCouple(
+        userAId: inviterId,
+        userBId: me.id,
+        anniversaryDate: DateTime.now(),
+      );
+
+      final couple = Couple.fromJson(coupleData);
+      final partnerRaw = couple.userAId == me.id
+          ? coupleData['userB'] as Map<String, dynamic>?
+          : coupleData['userA'] as Map<String, dynamic>?;
+      final partner = partnerRaw != null
+          ? AppUser.fromJson({
+              ...partnerRaw,
+              'email': '',
+              'phoneNumber': partnerRaw['phoneNumber'] ?? '',
+              'countryCode': '+1',
+            })
+          : mockSophia;
+
+      await ref.read(sessionProvider.notifier).connectPartner(partner, couple);
+    } catch (_) {
+      // Connection is still reflected locally; partner data falls back to the
+      // seeded profile until the server is reachable.
+    }
+    if (mounted) setState(() => _connecting = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final user = session.currentUser ?? mockAlex;
     final partner = session.partner ?? mockSophia;
@@ -112,7 +173,26 @@ class ConnectionSuccessScreen extends ConsumerWidget {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: session.couple?.anniversaryDate ??
+                              DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                          helpText: 'Select your anniversary',
+                        );
+                        if (picked == null || !context.mounted) return;
+                        await ref
+                            .read(sessionProvider.notifier)
+                            .updateAnniversary(picked);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Anniversary date saved')),
+                          );
+                        }
+                      },
                       child: Text('Set',
                           style:
                               AppTextStyles.bodyMedium(color: AppColors.rose)),
@@ -122,8 +202,11 @@ class ConnectionSuccessScreen extends ConsumerWidget {
               ),
               const Spacer(),
               PrimaryButton(
-                label: 'Continue to OurSound',
-                onTap: () => context.go('/home'),
+                label: _connecting
+                    ? 'Setting up your space...'
+                    : 'Continue to OurSound',
+                loading: _connecting,
+                onTap: _connecting ? null : () => context.go('/home'),
               ),
               const SizedBox(height: 8),
             ],

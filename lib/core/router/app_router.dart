@@ -13,11 +13,11 @@ import '../../features/auth/profile_setup_screen.dart';
 import '../../features/auth/phone_verify_screen.dart';
 
 // Connection / Invitation
+import '../../features/connection/connection_payload.dart';
 import '../../features/connection/invite_method_screen.dart';
 import '../../features/connection/qr_invitation_screen.dart';
 import '../../features/connection/invite_by_phone_screen.dart';
 import '../../features/connection/join_partner_screen.dart';
-import '../../features/connection/otp_verify_screen.dart';
 import '../../features/connection/connection_success_screen.dart';
 import '../../features/connection/already_connected_screen.dart';
 
@@ -131,13 +131,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/connection/join',
           builder: (_, __) => const JoinPartnerScreen()),
       GoRoute(
-          path: '/connection/otp',
-          builder: (_, state) => OTPVerifyScreen(
-                phone: state.extra as String? ?? '',
-              )),
-      GoRoute(
           path: '/connection/success',
-          builder: (_, __) => const ConnectionSuccessScreen()),
+          builder: (_, state) {
+            final extra = state.extra;
+            if (extra is ConnectionPayload) {
+              return ConnectionSuccessScreen(inviterId: extra.inviterId);
+            }
+            return const ConnectionSuccessScreen();
+          }),
       GoRoute(
           path: '/connection/already',
           builder: (_, __) => const AlreadyConnectedScreen()),

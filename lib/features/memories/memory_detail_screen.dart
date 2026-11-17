@@ -62,19 +62,31 @@ class MemoryDetailScreen extends ConsumerWidget {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: memory.photoSeeds.isNotEmpty
-                  ? ArtworkTile(
-                      seed: memory.photoSeeds.first,
-                      size: double.infinity,
-                      borderRadius: 0,
-                      icon: Icons.photo_rounded,
-                      iconSize: 60,
+              background: memory.photoUrls.isNotEmpty
+                  ? Image.network(
+                      memory.photoUrls.first,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.softPink,
+                        child: const Icon(Icons.photo_library_rounded,
+                            size: 60, color: AppColors.rose),
+                      ),
                     )
-                  : Container(
-                      color: AppColors.softPink,
-                      child: const Icon(Icons.photo_library_rounded,
-                          size: 60, color: AppColors.rose),
-                    ),
+                  : memory.photoSeeds.isNotEmpty
+                      ? ArtworkTile(
+                          seed: memory.photoSeeds.first,
+                          size: double.infinity,
+                          borderRadius: 0,
+                          icon: Icons.photo_rounded,
+                          iconSize: 60,
+                        )
+                      : Container(
+                          color: AppColors.softPink,
+                          child: const Icon(Icons.photo_library_rounded,
+                              size: 60, color: AppColors.rose),
+                        ),
             ),
           ),
           SliverPadding(

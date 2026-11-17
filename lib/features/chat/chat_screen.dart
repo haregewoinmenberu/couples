@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../../data/mock/mock_songs.dart';
 import '../../state/app_state.dart';
 import '../../state/content_state.dart';
 import '../../state/music_state.dart';
+import '../../services/api_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -32,15 +34,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final img = await picker.pickImage(source: ImageSource.gallery);
     if (img == null) return;
     final session = ref.read(sessionProvider);
+
+    // Upload the image to the backend when possible; fall back to the local
+    // generated artwork so the message still appears offline.
+    String? imageUrl;
+    try {
+      imageUrl = await ApiService.uploadImage(File(img.path));
+    } catch (_) {}
+
     final msg = ChatMessage(
       id: 'msg_photo_${DateTime.now().millisecondsSinceEpoch}',
       senderId: session.currentUser?.id ?? alexId,
       type: MessageType.photo,
       photoSeed: DateTime.now().millisecondsSinceEpoch % 8,
-      text: img.path,
+      text: imageUrl ?? img.path,
       sentAt: DateTime.now(),
     );
-    ref.read(chatProvider.notifier).send(msg);
+    ref.read(chatProvider.notifier).send(msg,
+        coupleId: session.couple?.id, imageUrl: imageUrl);
   }
 
   void _send() {
@@ -67,6 +78,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       }
     });
+  }
+
+  void _showCallDialog(BuildContext context, String name, bool video) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(video ? 'Video call $name?' : 'Call $name?',
+            style: AppTextStyles.h3()),
+        content: Text(
+          'Calling is not available in this demo. You can still send a song, '
+          'photo or voice note to let them know you are thinking of them.',
+          style: AppTextStyles.body(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          ElevatedButton.icon(
+            icon: Icon(video ? Icons.video_call_rounded : Icons.call_rounded),
+            label: const Text('Send a song instead'),
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/music');
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -125,11 +164,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.call_outlined),
-            onPressed: () {},
+            onPressed: () => _showCallDialog(context, partner.fullName, false),
           ),
           IconButton(
             icon: const Icon(Icons.video_call_outlined),
-            onPressed: () {},
+            onPressed: () => _showCallDialog(context, partner.fullName, true),
           ),
         ],
       ),
@@ -405,15 +444,28 @@ class _BubbleContent extends ConsumerWidget {
         );
 
       case MessageType.photo:
+        final url = message.text;
+        final isRemote = url != null && url.startsWith('http');
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: ArtworkTile(
-                  seed: message.photoSeed ?? 0,
-                  size: 160,
-                  borderRadius: 10),
+              child: isRemote
+                  ? Image.network(
+                      url,
+                      width: 180,
+                      height: 180,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => ArtworkTile(
+                          seed: message.photoSeed ?? 0,
+                          size: 160,
+                          borderRadius: 10),
+                    )
+                  : ArtworkTile(
+                      seed: message.photoSeed ?? 0,
+                      size: 160,
+                      borderRadius: 10),
             ),
             const SizedBox(height: 4),
             Text(formatTime(message.sentAt),

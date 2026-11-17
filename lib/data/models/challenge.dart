@@ -49,4 +49,36 @@ class Challenge {
     if (mine && !theirs) return ChallengeStatus.waitingForPartner;
     return ChallengeStatus.notStarted;
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'instructions': instructions,
+        'iconSeed': iconSeed,
+        'responses': responses
+            .map((r) => {
+                  'userId': r.userId,
+                  'answer': r.answer,
+                  'songId': r.songId,
+                  'respondedAt': r.respondedAt.toIso8601String(),
+                })
+            .toList(),
+      };
+
+  factory Challenge.fromJson(Map<String, dynamic> j) => Challenge(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        description: j['description'] as String? ?? '',
+        instructions: j['instructions'] as String? ?? '',
+        iconSeed: (j['iconSeed'] as num?)?.toInt() ?? 0,
+        responses: (j['responses'] as List? ?? [])
+            .map((r) => ChallengeResponse(
+                  userId: r['userId'] as String,
+                  answer: r['answer'] as String? ?? '',
+                  songId: r['songId'] as String?,
+                  respondedAt: DateTime.parse(r['respondedAt'] as String),
+                ))
+            .toList(),
+      );
 }
